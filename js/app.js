@@ -16,6 +16,14 @@ const App = (() => {
 
   const $ = sel => document.querySelector(sel);
   const cat = () => pres.precios;
+  // Los datos de la empresa (logo, nombre, cuenta, pie) no son precios: salen siempre del catálogo actual
+  const DATOS_EMPRESA = ['logo', 'empresa', 'iban', 'textoPie'];
+  const catImprimir = () => {
+    if (!catActual) return cat();
+    const parametros = { ...cat().parametros };
+    DATOS_EMPRESA.forEach(k => { parametros[k] = catActual.parametros[k]; });
+    return { ...cat(), parametros };
+  };
   const hoy = () => new Date().toISOString().slice(0, 10);
   const euros = n => (n || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
   const dec = (n, d = 2) => (n || 0).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -497,8 +505,8 @@ const App = (() => {
     },
     guardar,
     abrir,
-    async 'pdf-cliente'() { if (await guardarAntesDeImprimir()) Imprimir.cliente(pres, res, cat()); },
-    async 'pdf-completo'() { if (await guardarAntesDeImprimir()) Imprimir.completo(pres, res, cat()); },
+    async 'pdf-cliente'() { if (await guardarAntesDeImprimir()) Imprimir.cliente(pres, res, catImprimir()); },
+    async 'pdf-completo'() { if (await guardarAntesDeImprimir()) Imprimir.completo(pres, res, catImprimir()); },
     async 'recargar-catalogo'() {
       cerrarMenu();
       try {
