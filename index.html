@@ -35,6 +35,8 @@
         <details class="menu">
           <summary>⋯</summary>
           <div class="menu-lista">
+            <button data-accion="importar-plantilla">⬆️ Importar plantilla Excel</button>
+            <button data-accion="descargar-plantilla">⬇️ Descargar plantilla Excel</button>
             <button data-accion="recargar-catalogo">↻ Recargar catálogo</button>
             <button data-accion="importar-csv">⬆️ Importar CSV antiguo</button>
             <button data-accion="cambiar-carpeta">📁 Cambiar carpeta</button>
@@ -65,6 +67,10 @@
         <!-- Generador rápido de mueble -->
         <details class="tarjeta" id="generador">
           <summary><h2>Generador rápido de mueble</h2></summary>
+          <div class="generador-destino">
+            <label>Añadir a <select id="gm-destino"></select></label>
+            <label class="crece">Nombre del mueble nuevo <input type="text" id="gm-nombre" placeholder="Ej: Armario dormitorio"></label>
+          </div>
           <div class="generador">
             <div class="generador-campos">
               <label>Ancho (mm) <input type="number" id="gm-ancho" value="800" min="1"></label>
@@ -91,19 +97,9 @@
           </div>
         </details>
 
-        <!-- Materiales y piezas -->
-        <div id="secciones"></div>
-        <button class="anadir" data-accion="anadir-seccion">➕ Añadir material</button>
-
-        <!-- Extras -->
-        <section class="tarjeta">
-          <h2>Extras y herrajes</h2>
-          <table class="tabla tabla-extras">
-            <thead><tr><th>Producto</th><th>Descripción</th><th class="num">Precio €</th><th class="num">Cant.</th><th class="num">Total</th><th></th></tr></thead>
-            <tbody id="extras"></tbody>
-          </table>
-          <button class="anadir" data-accion="anadir-extra">➕ Añadir extra</button>
-        </section>
+        <!-- Muebles (apartados): cada uno con sus materiales, piezas y extras -->
+        <div id="muebles"></div>
+        <button class="anadir anadir-mueble" data-accion="anadir-mueble">➕ Añadir mueble</button>
 
         <!-- Desglose -->
         <details class="tarjeta" id="desglose-tarjeta">
@@ -135,6 +131,7 @@
   </dialog>
 
   <input type="file" id="archivo-csv" accept=".csv" hidden>
+  <input type="file" id="archivo-plantilla" accept=".xlsx,.xls" hidden>
   <input type="file" id="archivo-catalogo" accept=".xlsx" hidden>
   <input type="file" id="archivo-json" accept=".json" hidden>
 
@@ -145,6 +142,7 @@
   <script src="js/catalogo.js"></script>
   <script src="js/calculo.js"></script>
   <script src="js/almacen.js"></script>
+  <script src="js/plantilla.js"></script>
   <script src="js/imprimir.js"></script>
   <script src="js/mueble.js"></script>
   <script src="js/app.js"></script>

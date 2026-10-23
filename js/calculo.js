@@ -99,38 +99,53 @@ const Calculo = (() => {
     return res;
   }
 
+  // Un presupuesto se divide en muebles (apartados), cada uno con sus
+  // materiales y extras. El recargo por escala se decide con el total y se
+  // reparte en proporción, así la suma de los muebles es el total.
   function calcular(pres, cat) {
     const p = cat.parametros;
-    const secciones = pres.secciones.map(s => calcularSeccion(s, cat));
-    const extras = pres.extras.map(e => num(e.precio) * num(e.cantidad));
-
-    let base = 0, acabado = 0, materialDescontable = 0;
-    secciones.forEach((r, i) => {
-      const excl = pres.secciones[i].excluir || {};
-      CONCEPTOS.forEach(([k]) => {
-        if (excl[k]) return;
-        if (k === 'acabado') acabado += r.costes[k];
-        else base += r.costes[k];
-        if (k === 'tablero' || k === 'canto') materialDescontable += r.costes[k];
+    const muebles = pres.muebles.map(mu => {
+      const secciones = mu.secciones.map(s => calcularSeccion(s, cat));
+      const extras = mu.extras.map(e => num(e.precio) * num(e.cantidad));
+      let base = 0, acabado = 0, material = 0;
+      secciones.forEach((r, i) => {
+        const excl = mu.secciones[i].excluir || {};
+        CONCEPTOS.forEach(([k]) => {
+          if (excl[k]) return;
+          if (k === 'acabado') acabado += r.costes[k];
+          else base += r.costes[k];
+          if (k === 'tablero' || k === 'canto') material += r.costes[k];
+        });
       });
+      extras.forEach((coste, i) => { if (!mu.extras[i].excluir) base += coste; });
+      return { secciones, extras, base, acabado, material };
     });
-    extras.forEach((coste, i) => { if (!pres.extras[i].excluir) base += coste; });
+
+    const suma = k => muebles.reduce((t, m) => t + m[k], 0);
+    const base = suma('base'), acabado = suma('acabado'), material = suma('material');
 
     const recargoBasePct = porcentajeRecargo(base, cat.recargo);
-    const recargoBase = base * recargoBasePct / 100;
     const descuentoPct = pres.descuento?.activo ? num(pres.descuento.porcentaje) : 0;
-    const descuento = materialDescontable * descuentoPct / 100;
-    const subtotal = base + recargoBase - descuento;
-
     // El acabado superficial se presenta como opcional: lleva su propio recargo
     const recargoAcabadoPct = porcentajeRecargo(acabado, cat.recargo);
-    const acabadoTotal = acabado + acabado * recargoAcabadoPct / 100;
 
+    muebles.forEach(m => {
+      m.recargo = m.base * recargoBasePct / 100;
+      m.descuento = m.material * descuentoPct / 100;
+      m.precio = m.base + m.recargo - m.descuento;
+      m.acabadoTotal = m.acabado * (1 + recargoAcabadoPct / 100);
+      m.total = m.precio + m.acabadoTotal;
+    });
+
+    const recargoBase = suma('recargo');
+    const descuento = suma('descuento');
+    const subtotal = suma('precio');
+    const acabadoTotal = suma('acabadoTotal');
     const total = subtotal + acabadoTotal;
     const iva = total * (p.ivaPct || 0) / 100;
 
     return {
-      secciones, extras,
+      muebles,
       base, recargoBasePct, recargoBase, descuentoPct, descuento, subtotal,
       acabado, recargoAcabadoPct, acabadoTotal,
       total, iva, totalConIva: total + iva

@@ -66,7 +66,20 @@ const Mueble = (() => {
     add('Regleta vertical', alto, 50, ext, entero('gm-reg-v'));
     add('Regleta horizontal', 50, ancho, ext, entero('gm-reg-h'));
 
-    alAnadir(piezas);
+    const destino = $('gm-destino').value;
+    const nombre = $('gm-nombre').value.trim() || `Mueble ${ancho}×${alto}×${fondo}`;
+    alAnadir(piezas, destino === 'nuevo' ? 'nuevo' : Number(destino), nombre);
+    $('gm-nombre').value = '';
+  }
+
+  // Lista de muebles del presupuesto a los que se pueden añadir las piezas
+  function rellenarDestinos(nombres) {
+    const sel = $('gm-destino');
+    const anterior = sel.value || 'nuevo';
+    sel.innerHTML = '<option value="nuevo">Un mueble nuevo</option>' +
+      nombres.map((n, i) => `<option value="${i}">${n.replace(/</g, '&lt;')}</option>`).join('');
+    sel.value = [...sel.options].some(o => o.value === anterior) ? anterior : 'nuevo';
+    $('gm-nombre').disabled = sel.value !== 'nuevo';
   }
 
   let alAnadir = () => {};
@@ -107,9 +120,10 @@ const Mueble = (() => {
     ZONAS.forEach(z => $(`gm-${z}-fam`).addEventListener('change', () => rellenarTableros(z)));
     document.querySelectorAll('.generador-campos input').forEach(i => i.addEventListener('input', vistaPrevia));
     $('gm-anadir').addEventListener('click', generar);
+    $('gm-destino').addEventListener('change', () => { $('gm-nombre').disabled = $('gm-destino').value !== 'nuevo'; });
     $('gm-limpiar').addEventListener('click', limpiar);
     vistaPrevia();
   }
 
-  return { iniciar, rellenarMateriales };
+  return { iniciar, rellenarMateriales, rellenarDestinos };
 })();

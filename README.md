@@ -8,6 +8,7 @@ App para hacer presupuestos de mobiliario a medida. Funciona abriendo `index.htm
 | --- | --- |
 | `index.html` | La app. Se abre con doble clic. |
 | `catalogo.xlsx` | Precios: tableros, cantos, acabados, extras, recargo y parámetros. **Se edita con Excel.** |
+| `plantilla_presupuesto.xlsx` | Plantilla para preparar un presupuesto en Excel e importarlo. |
 | `LOGO.JPG` | Logo que sale en el PDF del cliente (el nombre se cambia en el catálogo, pestaña Parámetros). |
 | `Presupuestos/AAAA/AAAA-NNN - Cliente/presupuesto.json` | Cada presupuesto guardado. Los crea la app. |
 | `js/`, `lib/`, `styles.css` | Código de la app. No hace falta tocarlos. |
@@ -19,6 +20,11 @@ App para hacer presupuestos de mobiliario a medida. Funciona abriendo `index.htm
 3. **Abrir** muestra todos los presupuestos con un buscador. **Duplicar** crea uno nuevo a partir del abierto.
 4. **PDF cliente** y **PDF completo** abren el diálogo de impresión: elegir «Guardar como PDF».
 5. En la tabla de piezas, **Intro** baja a la fila siguiente o crea una nueva.
+6. Cada presupuesto se divide en **muebles** (apartados): cada uno con su nombre, sus materiales, piezas y extras. El PDF del cliente muestra el precio de cada mueble.
+
+## Plantilla Excel
+
+`plantilla_presupuesto.xlsx` permite preparar un presupuesto en Excel: una fila por pieza, con la columna «Mueble» para separar apartados, y una pestaña de extras. Se importa con **⋯ → Importar plantilla Excel**. Desde **⋯ → Descargar plantilla Excel** se obtiene una plantilla nueva con los materiales del catálogo actual.
 
 ## Cambiar precios o añadir productos
 
@@ -32,3 +38,4 @@ Los presupuestos guardados conservan los precios con los que se hicieron. Para p
 - El corte y el CNC se cobran por el perímetro de las piezas, y el canteado por los cantos marcados (o por todo el perímetro si la familia es «Pulido»).
 - El recargo por escala se aplica a materiales, mecanizado y extras. El acabado superficial (lacado, barnizado) se presenta como opcional y lleva su propio recargo, igual que en el PDF del cliente de la v3.
 - El descuento de carpintero se aplica sobre el tablero y el material de canto.
+- El porcentaje de recargo se decide con el total del presupuesto y se aplica igual a cada mueble, así la suma de los precios de los muebles es el total.
