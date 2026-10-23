@@ -54,7 +54,9 @@ const Catalogo = (() => {
     ['validezDias', 'validez'],
     ['logo', 'logo', 'texto'],
     ['empresa', 'nombre de la empresa', 'texto'],
-    ['textoPie', 'texto al pie', 'texto']
+    ['textoPie', 'texto al pie', 'texto'],
+    ['pagoInicialPct', 'pago inicial', 'numero', 50],
+    ['iban', 'numero de cuenta', 'texto', '']
   ];
 
   function desdeLibro(libro) {
@@ -112,10 +114,13 @@ const Catalogo = (() => {
       const def = PARAMETROS.find(([, inicio]) => nombre.startsWith(inicio));
       if (!def) return;
       const [clave, , tipo] = def;
+      if (tipo === 'numero' && String(valor).trim() === '') return;
       parametros[clave] = tipo === 'siNo' ? siNo(valor) : tipo === 'texto' ? String(valor).trim() : numero(valor);
     });
-    PARAMETROS.forEach(([clave, inicio]) => {
-      if (!(clave in parametros)) avisos.push(`Falta el parámetro «${inicio}» en la pestaña Parámetros`);
+    PARAMETROS.forEach(([clave, inicio, , porDefecto]) => {
+      if (clave in parametros) return;
+      if (porDefecto !== undefined) parametros[clave] = porDefecto; // parámetros añadidos después: opcionales
+      else avisos.push(`Falta el parámetro «${inicio}» en la pestaña Parámetros`);
     });
 
     familias.forEach(fa => {

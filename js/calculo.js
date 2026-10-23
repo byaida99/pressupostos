@@ -121,19 +121,22 @@ const Calculo = (() => {
       return { secciones, extras, base, acabado, material };
     });
 
-    const suma = k => muebles.reduce((t, m) => t + m[k], 0);
-    const base = suma('base'), acabado = suma('acabado'), material = suma('material');
+    // Los muebles desactivados se calculan (para verlos en pantalla) pero no suman
+    muebles.forEach((m, i) => { m.activo = pres.muebles[i].activo !== false; });
+    const suma = k => muebles.reduce((t, m) => t + (m.activo ? m[k] : 0), 0);
+    const base = suma('base'), acabado = suma('acabado');
 
-    const recargoBasePct = porcentajeRecargo(base, cat.recargo);
+    // El recargo por escala se decide con el total del proyecto, acabado incluido,
+    // y se aplica igual a cada mueble para que la suma de los muebles sea el total
+    const recargoPct = pres.recargoActivo === false ? 0 : porcentajeRecargo(base + acabado, cat.recargo);
     const descuentoPct = pres.descuento?.activo ? num(pres.descuento.porcentaje) : 0;
-    // El acabado superficial se presenta como opcional: lleva su propio recargo
-    const recargoAcabadoPct = porcentajeRecargo(acabado, cat.recargo);
 
     muebles.forEach(m => {
-      m.recargo = m.base * recargoBasePct / 100;
+      m.recargo = m.base * recargoPct / 100;
       m.descuento = m.material * descuentoPct / 100;
       m.precio = m.base + m.recargo - m.descuento;
-      m.acabadoTotal = m.acabado * (1 + recargoAcabadoPct / 100);
+      // El acabado superficial se presenta aparte, como opcional
+      m.acabadoTotal = m.acabado * (1 + recargoPct / 100);
       m.total = m.precio + m.acabadoTotal;
     });
 
@@ -143,12 +146,14 @@ const Calculo = (() => {
     const acabadoTotal = suma('acabadoTotal');
     const total = subtotal + acabadoTotal;
     const iva = total * (p.ivaPct || 0) / 100;
+    const pagoInicialPct = p.pagoInicialPct ?? 50;
 
     return {
       muebles,
-      base, recargoBasePct, recargoBase, descuentoPct, descuento, subtotal,
-      acabado, recargoAcabadoPct, acabadoTotal,
-      total, iva, totalConIva: total + iva
+      base, recargoPct, recargoBase, descuentoPct, descuento, subtotal,
+      acabado, acabadoTotal,
+      total, iva, totalConIva: total + iva,
+      pagoInicialPct, pagoInicial: (total + iva) * pagoInicialPct / 100
     };
   }
 

@@ -63,30 +63,86 @@ const Imprimir = (() => {
 
   function cliente(pres, res, cat) {
     const p = cat.parametros;
-    const filas = [];
+    const validez = p.validezDias ? `${dec(p.validezDias, 0)} días` : '';
+    const vence = p.validezDias && pres.fecha
+      ? new Date(new Date(pres.fecha).getTime() + p.validezDias * 864e5).toLocaleDateString('es-ES') : '';
+
+    let filas = '';
+    let n = 0;
     pres.muebles.forEach((mu, m) => {
       const rm = res.muebles[m];
-      if (!rm.precio && !rm.acabadoTotal) return;
+      if (mu.activo === false || (!rm.precio && !rm.acabadoTotal)) return;
+      n++;
+      const par = n % 2 === 0 ? ' par' : '';
       const mats = materialesDe(mu, cat);
-      filas.push([`<strong>${esc(nombreMueble(mu, m))}</strong>${mats ? `<div class="pdf-sub">${esc(mats)}</div>` : ''}`, euros(rm.precio)]);
-      if (rm.acabadoTotal > 0) filas.push([`Acabado superficial de ${esc(nombreMueble(mu, m).toLowerCase())} (opcional)`, euros(rm.acabadoTotal), 'cursiva']);
+      filas += `<tr class="cli-mueble${par}">
+          <td class="cli-n">${n}</td>
+          <td><div class="cli-nombre">${esc(nombreMueble(mu, m))}</div>${mats ? `<div class="cli-mats">${esc(mats)}</div>` : ''}</td>
+          <td class="num cli-importe">${euros(rm.precio)}</td></tr>`;
+      if (rm.acabadoTotal > 0) {
+        filas += `<tr class="cli-opcional${par}"><td></td>
+          <td>Acabado superficial (lacado / barnizado) <span class="cli-etiqueta">opcional</span></td>
+          <td class="num">${euros(rm.acabadoTotal)}</td></tr>`;
+      }
     });
-    if (res.descuento > 0) filas.push([`Los precios incluyen un descuento de ${euros(res.descuento)}`, '', 'verde']);
 
-    let pie = `<tr class="pdf-total"><td>${p.mostrarIva ? 'Total sin IVA' : 'PRESUPUESTO FINAL'}</td><td>${euros(res.total)}</td></tr>`;
-    if (p.mostrarIva) {
-      pie += `<tr><td>IVA (${dec(p.ivaPct, 0)} %)</td><td>${euros(res.iva)}</td></tr>
-              <tr class="pdf-total"><td>TOTAL CON IVA</td><td>${euros(res.totalConIva)}</td></tr>`;
-    }
-    const validez = p.validezDias ? `Presupuesto válido ${dec(p.validezDias, 0)} días.` : '';
-    const html = `<div class="pdf">
-      ${cabecera(pres, cat, 'Presupuesto')}
-      <table class="pdf-tabla">
-        <thead><tr><th>Descripción</th><th class="num">Importe</th></tr></thead>
-        <tbody>${filas.map(([t, v, c]) => `<tr class="${c || ''}"><td>${t}</td><td class="num">${v}</td></tr>`).join('')}</tbody>
-        <tfoot>${pie}</tfoot>
+    const pagoIni = res.pagoInicial, pagoFin = res.totalConIva - res.pagoInicial;
+    const pctIni = dec(res.pagoInicialPct, 0), pctFin = dec(100 - res.pagoInicialPct, 0);
+
+    const html = `<div class="pdf cli">
+      <header class="cli-cabecera">
+        <div class="cli-marca">
+          ${p.logo ? `<img src="${esc(p.logo)}" alt="" class="cli-logo">` : ''}
+          ${p.empresa ? `<div class="cli-empresa">${esc(p.empresa)}</div>` : ''}
+        </div>
+        <div class="cli-doc">
+          <div class="cli-titulo">PRESUPUESTO</div>
+          <table class="cli-meta">
+            <tr><td>Nº</td><td><strong>${esc(pres.numero || 'borrador')}</strong></td></tr>
+            <tr><td>Fecha</td><td>${fecha(pres.fecha)}</td></tr>
+            ${vence ? `<tr><td>Válido hasta</td><td>${vence}</td></tr>` : ''}
+          </table>
+        </div>
+      </header>
+
+      <section class="cli-cliente">
+        <div>
+          <div class="cli-rotulo">Cliente</div>
+          <div class="cli-valor">${esc(pres.cliente.nombre || '—')}</div>
+          ${pres.cliente.contacto ? `<div class="cli-contacto">${esc(pres.cliente.contacto)}</div>` : ''}
+        </div>
+        ${pres.referencia ? `<div><div class="cli-rotulo">Proyecto</div><div class="cli-valor">${esc(pres.referencia)}</div></div>` : ''}
+      </section>
+      ${pres.descripcion ? `<p class="cli-descripcion">${esc(pres.descripcion).replace(/\n/g, '<br>')}</p>` : ''}
+
+      <table class="cli-tabla">
+        <thead><tr><th class="cli-n">#</th><th>Descripción</th><th class="num">Importe</th></tr></thead>
+        <tbody>${filas}</tbody>
       </table>
-      <p class="pdf-pie">${p.mostrarIva ? '' : 'Precio sin IVA. '}${validez}${p.textoPie ? '<br>' + esc(p.textoPie) : ''}</p>
+      ${res.descuento > 0 ? `<p class="cli-descuento">✓ Los precios incluyen un descuento de ${euros(res.descuento)}.</p>` : ''}
+
+      <div class="cli-final">
+        <section class="cli-condiciones">
+          <h3>Condiciones de aceptación</h3>
+          <div class="cli-paso"><span class="cli-paso-n">1</span>
+            <div><strong>Inicio del proyecto · ${pctIni} %</strong><br>Para empezar el trabajo se abona el ${pctIni} % del total:
+              <span class="cli-resalte">${euros(pagoIni)}</span></div></div>
+          <div class="cli-paso"><span class="cli-paso-n">2</span>
+            <div><strong>Entrega · ${pctFin} %</strong><br>El ${pctFin} % restante, <strong>${euros(pagoFin)}</strong>, se liquida a la entrega del material.</div></div>
+          ${p.iban ? `<div class="cli-iban"><span>Número de cuenta para el ingreso</span><code>${esc(p.iban)}</code></div>` : ''}
+        </section>
+        <section class="cli-totales">
+          <div class="cli-linea"><span>Base imponible</span><span>${euros(res.total)}</span></div>
+          <div class="cli-linea"><span>IVA (${dec(p.ivaPct, 0)} %)</span><span>${euros(res.iva)}</span></div>
+          <div class="cli-total"><span>TOTAL<small>IVA incluido</small></span><span>${euros(res.totalConIva)}</span></div>
+          ${res.acabadoTotal > 0 ? `<p class="cli-nota">El total incluye el acabado superficial opcional. Sin él: ${euros(res.subtotal * (1 + (p.ivaPct || 0) / 100))} IVA incluido.</p>` : ''}
+        </section>
+      </div>
+
+      <footer class="cli-pie">
+        ${validez ? `Presupuesto válido durante ${validez} desde la fecha de emisión.` : ''}
+        ${p.textoPie ? `<br>${esc(p.textoPie)}` : ''}
+      </footer>
     </div>`;
     imprimir(html, nombreArchivo(pres));
   }
@@ -98,6 +154,7 @@ const Imprimir = (() => {
 
     pres.muebles.forEach((mu, m) => {
       const rm = res.muebles[m];
+      if (mu.activo === false) return;
       html += `<h2 class="pdf-mueble">${esc(nombreMueble(mu, m))} — ${euros(rm.precio)}${rm.acabadoTotal > 0 ? ` + ${euros(rm.acabadoTotal)} acabado opcional` : ''}</h2>`;
       mu.secciones.forEach((sec, i) => {
         const r = rm.secciones[i];
@@ -132,14 +189,16 @@ const Imprimir = (() => {
     });
 
     html += `<h2 class="pdf-mueble">Resumen</h2><table class="pdf-tabla resumen-pdf">
-      ${pres.muebles.length > 1 ? pres.muebles.map((mu, m) => `<tr><td>${esc(nombreMueble(mu, m))}</td><td class="num">${euros(res.muebles[m].precio)}${res.muebles[m].acabadoTotal > 0 ? ` (+ ${euros(res.muebles[m].acabadoTotal)} acabado)` : ''}</td></tr>`).join('') : ''}
+      ${pres.muebles.length > 1 ? pres.muebles.filter(mu => mu.activo !== false).map(mu => [mu, pres.muebles.indexOf(mu)]).map(([mu, m]) => `<tr><td>${esc(nombreMueble(mu, m))}</td><td class="num">${euros(res.muebles[m].precio)}${res.muebles[m].acabadoTotal > 0 ? ` (+ ${euros(res.muebles[m].acabadoTotal)} acabado)` : ''}</td></tr>`).join('') : ''}
       <tr><td>Materiales, mecanizado y extras</td><td class="num">${euros(res.base)}</td></tr>
-      <tr><td>+ Recargo por escala (${dec(res.recargoBasePct, 0)} %)</td><td class="num">${euros(res.recargoBase)}</td></tr>
+      <tr><td>+ Recargo por escala (${pres.recargoActivo === false ? 'desactivado' : dec(res.recargoPct, 0) + ' % s/ total'})</td><td class="num">${euros(res.recargoBase)}</td></tr>
       ${res.descuento > 0 ? `<tr class="verde"><td>− Descuento carpintero (${dec(res.descuentoPct, 1)} % s/ tablero y canto)</td><td class="num">−${euros(res.descuento)}</td></tr>` : ''}
       <tr><td><strong>Subtotal</strong></td><td class="num"><strong>${euros(res.subtotal)}</strong></td></tr>
-      ${res.acabadoTotal > 0 ? `<tr><td>+ Acabado superficial (${euros(res.acabado)} + recargo ${dec(res.recargoAcabadoPct, 0)} %)</td><td class="num">${euros(res.acabadoTotal)}</td></tr>` : ''}
-      <tr class="pdf-total"><td>TOTAL (sin IVA)</td><td class="num">${euros(res.total)}</td></tr>
-      ${p.mostrarIva ? `<tr><td>IVA (${dec(p.ivaPct, 0)} %)</td><td class="num">${euros(res.iva)}</td></tr><tr class="pdf-total"><td>Total con IVA</td><td class="num">${euros(res.totalConIva)}</td></tr>` : ''}
+      ${res.acabadoTotal > 0 ? `<tr><td>+ Acabado superficial (${euros(res.acabado)} + recargo)</td><td class="num">${euros(res.acabadoTotal)}</td></tr>` : ''}
+      <tr><td><strong>Base imponible</strong></td><td class="num"><strong>${euros(res.total)}</strong></td></tr>
+      <tr><td>IVA (${dec(p.ivaPct, 0)} %)</td><td class="num">${euros(res.iva)}</td></tr>
+      <tr class="pdf-total"><td>TOTAL (IVA incluido)</td><td class="num">${euros(res.totalConIva)}</td></tr>
+      <tr><td>Pago inicial (${dec(res.pagoInicialPct, 0)} %)</td><td class="num">${euros(res.pagoInicial)}</td></tr>
     </table>
     <p class="pdf-pie">Precios del catálogo del ${fecha(cat.fecha)}. Los conceptos tachados no se cobran.</p></div>`;
     imprimir(html, nombreArchivo(pres, 'detalle'));

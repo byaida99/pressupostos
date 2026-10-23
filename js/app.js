@@ -55,7 +55,7 @@ const App = (() => {
   function muebleNuevo(nombre = '', familia) {
     const s = seccionNueva(familia || cat().familias[0]?.codigo);
     s.piezas.push(piezaNueva(s.familia));
-    return { nombre, secciones: [s], extras: [] };
+    return { nombre, activo: true, secciones: [s], extras: [] };
   }
 
   function presupuestoVacio() {
@@ -63,6 +63,7 @@ const App = (() => {
       version: 5, numero: '', fecha: hoy(),
       cliente: { nombre: '', contacto: '' }, referencia: '', descripcion: '',
       descuento: { activo: false, porcentaje: catActual.parametros.descuentoCarpinteroPct },
+      recargoActivo: true,
       muebles: [], precios: catActual
     };
     pres.muebles.push(muebleNuevo());
@@ -74,6 +75,7 @@ const App = (() => {
     p.cliente = p.cliente || { nombre: '', contacto: '' };
     p.descuento = p.descuento || { activo: false, porcentaje: catActual.parametros.descuentoCarpinteroPct };
     p.precios = p.precios || catActual;
+    if (p.recargoActivo === undefined) p.recargoActivo = true;
     if (!p.muebles) {
       // Guardado antes de existir los apartados: todo va a un único mueble
       p.muebles = [{ nombre: '', secciones: p.secciones || [], extras: p.extras || [] }];
@@ -81,6 +83,7 @@ const App = (() => {
     }
     p.muebles.forEach(mu => {
       mu.extras = mu.extras || [];
+      if (mu.activo === undefined) mu.activo = true;
       mu.secciones.forEach(s => {
         s.excluir = s.excluir || {};
         s.piezas.forEach(pz => { pz.cantos = pz.cantos || [false, false, false, false]; });
@@ -183,8 +186,10 @@ const App = (() => {
   function pintarMuebles() {
     const n = pres.muebles.length;
     $('#muebles').innerHTML = pres.muebles.map((mu, m) => `
-      <section class="mueble" data-m="${m}">
+      <section class="mueble${mu.activo === false ? ' inactivo' : ''}" data-m="${m}">
         <div class="mueble-cabecera">
+          <label class="interruptor" title="Si lo desactivas, este mueble no sale en el presupuesto ni suma en el total">
+            <input type="checkbox" data-bind="mu.activo"${mu.activo === false ? '' : ' checked'}><span>Incluir</span></label>
           <input type="text" class="mueble-nombre" data-bind="mu.nombre" value="${esc(mu.nombre)}"
             placeholder="Mueble ${m + 1} (ej: Armario dormitorio) — sale en el PDF del cliente">
           <span class="mueble-precio" data-out="mueble"></span>
@@ -218,7 +223,7 @@ const App = (() => {
     pres.muebles.forEach((mu, m) => {
       const rm = res.muebles[m];
       if (pres.muebles.length > 1) {
-        html += `<tr class="fila-mueble"><td colspan="${Calculo.CONCEPTOS.length + 2}">${esc(nombreMueble(mu, m))}</td></tr>`;
+        html += `<tr class="fila-mueble"><td colspan="${Calculo.CONCEPTOS.length + 2}">${esc(nombreMueble(mu, m))}${mu.activo === false ? ' — no incluido' : ''}</td></tr>`;
       }
       mu.secciones.forEach((sec, i) => {
         const r = rm.secciones[i];
@@ -242,19 +247,19 @@ const App = (() => {
     const fila = (t, v, cls = '') => `<div class="fila ${cls}"><span>${t}</span><span>${v}</span></div>`;
     let html = '';
     if (pres.muebles.length > 1) {
-      html += '<div class="resumen-muebles">' + pres.muebles.map((mu, m) =>
-        fila(esc(nombreMueble(mu, m)), euros(res.muebles[m].precio))).join('') + '</div>';
+      html += '<div class="resumen-muebles">' + pres.muebles.map((mu, m) => mu.activo === false
+        ? fila(`<s>${esc(nombreMueble(mu, m))}</s>`, 'no incluido', 'apagado')
+        : fila(esc(nombreMueble(mu, m)), euros(res.muebles[m].precio))).join('') + '</div>';
     }
     html += fila('Materiales, mecanizado y extras', euros(res.base));
-    html += fila(`+ Recargo por escala (${dec(res.recargoBasePct, 0)} %)`, euros(res.recargoBase));
+    if (pres.recargoActivo !== false) html += fila(`+ Recargo por escala (${dec(res.recargoPct, 0)} % s/ total)`, euros(res.recargoBase));
     if (pres.descuento.activo) html += fila(`− Descuento carpintero (${dec(res.descuentoPct, 1)} % s/ tablero y canto)`, '−' + euros(res.descuento), 'verde');
     html += fila('Subtotal', euros(res.subtotal), 'negrita');
-    if (res.acabadoTotal > 0) html += fila(`+ Acabado superficial (opcional, recargo ${dec(res.recargoAcabadoPct, 0)} %)`, euros(res.acabadoTotal));
-    html += fila('TOTAL (sin IVA)', euros(res.total), 'total');
-    if (p.mostrarIva) {
-      html += fila(`IVA (${dec(p.ivaPct, 0)} %)`, euros(res.iva));
-      html += fila('Total con IVA', euros(res.totalConIva), 'negrita');
-    }
+    if (res.acabadoTotal > 0) html += fila('+ Acabado superficial (opcional)', euros(res.acabadoTotal));
+    html += fila('Base imponible', euros(res.total), 'negrita separador');
+    html += fila(`IVA (${dec(p.ivaPct, 0)} %)`, euros(res.iva));
+    html += fila('TOTAL (IVA incluido)', euros(res.totalConIva), 'total');
+    html += fila(`Pago inicial (${dec(res.pagoInicialPct, 0)} %)`, euros(res.pagoInicial), 'pequeno');
     const avisos = [];
     res.muebles.forEach((rm, m) => rm.secciones.forEach((r, i) => {
       if (r.aviso) avisos.push(`${nombreMueble(pres.muebles[m], m)}, material ${i + 1}: ${r.aviso}`);
@@ -367,6 +372,7 @@ const App = (() => {
     }
     else if (b.startsWith('ex.')) ex[b.slice(3)] = v;
     else if (b === 'mu.nombre') { mu.nombre = v; Mueble.rellenarDestinos(pres.muebles.map(nombreMueble)); }
+    else if (b === 'mu.activo') { mu.activo = v; el.closest('.mueble').classList.toggle('inactivo', !v); }
     else {
       const ruta = b.split('.');
       const ultimo = ruta.pop();

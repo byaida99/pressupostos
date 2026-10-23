@@ -113,6 +113,9 @@
         <h2>Resumen</h2>
         <div id="resumen"></div>
         <label class="descuento">
+          <input type="checkbox" data-bind="recargoActivo"> Aplicar recargo por escala
+        </label>
+        <label class="descuento">
           <input type="checkbox" data-bind="descuento.activo"> Descuento carpintero
           <input type="number" data-bind="descuento.porcentaje" min="0" max="100" step="0.1"> %
         </label>

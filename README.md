@@ -21,6 +21,8 @@ App para hacer presupuestos de mobiliario a medida. Funciona abriendo `index.htm
 4. **PDF cliente** y **PDF completo** abren el diálogo de impresión: elegir «Guardar como PDF».
 5. En la tabla de piezas, **Intro** baja a la fila siguiente o crea una nueva.
 6. Cada presupuesto se divide en **muebles** (apartados): cada uno con su nombre, sus materiales, piezas y extras. El PDF del cliente muestra el precio de cada mueble.
+7. La casilla **Incluir** de cada mueble lo quita del presupuesto (no suma ni sale en el PDF) sin borrarlo.
+8. El PDF del cliente termina con el resumen (base imponible, IVA y total) y las condiciones de pago: el porcentaje inicial y el número de cuenta se cambian en `catalogo.xlsx`, pestaña Parámetros.
 
 ## Plantilla Excel
 
@@ -36,6 +38,6 @@ Los presupuestos guardados conservan los precios con los que se hicieron. Para p
 
 - El tablero se cobra por tableros enteros o por m² de pieza más la merma.
 - El corte y el CNC se cobran por el perímetro de las piezas, y el canteado por los cantos marcados (o por todo el perímetro si la familia es «Pulido»).
-- El recargo por escala se aplica a materiales, mecanizado y extras. El acabado superficial (lacado, barnizado) se presenta como opcional y lleva su propio recargo, igual que en el PDF del cliente de la v3.
+- El porcentaje del recargo por escala se decide con el importe total del proyecto, incluido el acabado superficial, y se aplica a todo. Se puede desactivar con la casilla «Aplicar recargo por escala» del resumen. El acabado superficial (lacado, barnizado) se presenta como opcional.
 - El descuento de carpintero se aplica sobre el tablero y el material de canto.
 - El porcentaje de recargo se decide con el total del presupuesto y se aplica igual a cada mueble, así la suma de los precios de los muebles es el total.
