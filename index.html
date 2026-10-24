@@ -54,6 +54,7 @@
         <section class="tarjeta">
           <h2>Cliente y proyecto</h2>
           <div class="rejilla-datos">
+            <label>Código cliente <input type="text" data-bind="cliente.codigo" placeholder="1000 = sin código" title="Carpeta donde se guarda. Vacío o 1000: cliente sin código"></label>
             <label>Cliente <input type="text" data-bind="cliente.nombre" placeholder="Nombre del cliente"></label>
             <label>Teléfono / email <input type="text" data-bind="cliente.contacto"></label>
             <label>Referencia <input type="text" data-bind="referencia" placeholder="Ej: Cocina Gómez"></label>
@@ -142,6 +143,8 @@
   <div id="notificacion" class="notificacion" hidden></div>
 
   <script src="lib/xlsx.full.min.js"></script>
+  <script src="lib/html2canvas.min.js"></script>
+  <script src="lib/jspdf.umd.min.js"></script>
   <script src="js/catalogo.js"></script>
   <script src="js/calculo.js"></script>
   <script src="js/almacen.js"></script>

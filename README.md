@@ -2,6 +2,21 @@
 
 App para hacer presupuestos de mobiliario a medida. Funciona abriendo `index.html` con **Chrome o Edge** desde la carpeta compartida del NAS. No necesita servidor ni instalación.
 
+## Carpetas en el NAS
+
+```
+CARPETA COMPARTIDA/
+  0_PROGRAMA/          ← esta app (index.html, catalogo.xlsx, LOGO.JPG…)
+  1_PRESSUPOSTOS/
+    1234/              ← un cliente con código (vale también «1234 - Nombre»)
+      2026-001 - Nombre.json
+      2026-001 - Nombre.pdf
+    1000/              ← clientes sin código
+      Nombre - 600123456/
+        2026-002 - Nombre.json
+        2026-002 - Nombre.pdf
+```
+
 ## Archivos
 
 | Archivo | Para qué sirve |
@@ -10,15 +25,14 @@ App para hacer presupuestos de mobiliario a medida. Funciona abriendo `index.htm
 | `catalogo.xlsx` | Precios: tableros, cantos, acabados, extras, recargo y parámetros. **Se edita con Excel.** |
 | `plantilla_presupuesto.xlsx` | Plantilla para preparar un presupuesto en Excel e importarlo. |
 | `LOGO.JPG` | Logo que sale en el PDF del cliente (el nombre se cambia en el catálogo, pestaña Parámetros). |
-| `Presupuestos/AAAA/AAAA-NNN - Cliente/presupuesto.json` | Cada presupuesto guardado. Los crea la app. |
-| `js/`, `lib/`, `styles.css` | Código de la app. No hace falta tocarlos. |
+| `js/`, `lib/`, `styles.css` | Código de la app. No hace falta tocarlos. `lib/` lleva SheetJS, html2canvas y jsPDF para funcionar sin internet. |
 
 ## Uso
 
-1. La primera vez en cada ordenador, la app pide elegir la carpeta del NAS donde están `index.html` y `catalogo.xlsx`. Después solo hay que pulsar «Conectar» al abrirla.
-2. **Guardar** (o Ctrl+S) asigna el número siguiente (`2026-001`, `2026-002`…) y crea la carpeta del presupuesto.
-3. **Abrir** muestra todos los presupuestos con un buscador. **Duplicar** crea uno nuevo a partir del abierto.
-4. **PDF cliente** y **PDF completo** abren el diálogo de impresión: elegir «Guardar como PDF».
+1. La primera vez en cada ordenador, la app pide elegir la carpeta del NAS que contiene `0_PROGRAMA` y `1_PRESSUPOSTOS`. Después solo hay que pulsar «Conectar» al abrirla.
+2. **Guardar** (o Ctrl+S) asigna el número siguiente (`2026-001`, `2026-002`…) y guarda el `.json` en la carpeta del cliente según su **código**. Si la carpeta no existe, se crea. Sin código (o con 1000) va a `1000/Nombre - Teléfono`. Si luego se cambia el código o el nombre, el presupuesto y su PDF se mueven solos.
+3. **Abrir** muestra todos los presupuestos con un buscador (número, código, cliente o referencia). **Duplicar** crea uno nuevo a partir del abierto.
+4. **PDF cliente** genera el PDF y lo guarda junto al `.json`, con el mismo nombre. **PDF completo** (interno) abre el diálogo de impresión.
 5. En la tabla de piezas, **Intro** baja a la fila siguiente o crea una nueva.
 6. Cada presupuesto se divide en **muebles** (apartados): cada uno con su nombre, sus materiales, piezas y extras. El PDF del cliente muestra el precio de cada mueble.
 7. La casilla **Incluir** de cada mueble lo quita del presupuesto (no suma ni sale en el PDF) sin borrarlo.

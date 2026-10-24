@@ -69,7 +69,7 @@ const App = (() => {
   function presupuestoVacio() {
     pres = {
       version: 5, numero: '', fecha: hoy(),
-      cliente: { nombre: '', contacto: '' }, referencia: '', descripcion: '',
+      cliente: { codigo: '', nombre: '', contacto: '' }, referencia: '', descripcion: '',
       descuento: { activo: false, porcentaje: catActual.parametros.descuentoCarpinteroPct },
       recargoActivo: true,
       muebles: [], precios: catActual
@@ -81,6 +81,7 @@ const App = (() => {
   // Completa campos que pueden faltar en presupuestos guardados
   function prepararCargado(p) {
     p.cliente = p.cliente || { nombre: '', contacto: '' };
+    p.cliente.codigo = p.cliente.codigo || '';
     p.descuento = p.descuento || { activo: false, porcentaje: catActual.parametros.descuentoCarpinteroPct };
     p.precios = p.precios || catActual;
     if (p.recargoActivo === undefined) p.recargoActivo = true;
@@ -498,14 +499,14 @@ const App = (() => {
     duplicar() {
       pres = copia(pres);
       Object.assign(pres, { numero: '', fecha: hoy(), precios: catActual });
-      delete pres.resumen;
+      delete pres.resumen; delete pres.ubicacion;
       fechaArchivo = null;
       marcarCambios(); pintarTodo();
       notificar('Copia creada con los precios actuales. Al guardar tendrá un número nuevo.');
     },
     guardar,
     abrir,
-    async 'pdf-cliente'() { if (await guardarAntesDeImprimir()) Imprimir.cliente(pres, res, catImprimir()); },
+    'pdf-cliente': pdfCliente,
     async 'pdf-completo'() { if (await guardarAntesDeImprimir()) Imprimir.completo(pres, res, catImprimir()); },
     async 'recargar-catalogo'() {
       cerrarMenu();
@@ -597,11 +598,40 @@ const App = (() => {
       }
       fechaArchivo = r.fecha;
       cambios = false; borrarBorrador(); pintarCabecera();
-      notificar(`Guardado en Presupuestos/${pres.numero.slice(0, 4)}/${r.carpeta}`);
+      notificar(`Guardado en ${r.ruta}.json`);
       return true;
     } catch (e) {
       alert('No se ha podido guardar: ' + e.message + '\n\n¿Está conectado el NAS?');
       return false;
+    }
+  }
+
+  // Genera el PDF del cliente y lo guarda junto al .json, con el mismo nombre
+  async function pdfCliente() {
+    if (!(await guardarAntesDeImprimir())) return;
+    const c = catImprimir();
+    let blob;
+    try {
+      notificar('Generando PDF…');
+      if (modoCarpeta && c.parametros.logo) {
+        c.parametros = { ...c.parametros, logo: await Almacen.leerComoDataUrl(c.parametros.logo) };
+      }
+      blob = await Imprimir.pdfCliente(pres, res, c);
+    } catch (e) {
+      alert('No se ha podido generar el PDF: ' + e.message + '\n\nSe abrirá el diálogo de impresión.');
+      return Imprimir.cliente(pres, res, catImprimir());
+    }
+    const url = URL.createObjectURL(blob);
+    if (!modoCarpeta) {
+      const a = document.createElement('a');
+      a.href = url; a.download = Imprimir.nombreArchivo(pres) + '.pdf'; a.click();
+      return;
+    }
+    try {
+      const ruta = await Almacen.guardarPdf(pres, blob);
+      notificar(`PDF guardado en ${ruta}`, { texto: 'Abrir PDF', url });
+    } catch (e) {
+      alert('No se ha podido guardar el PDF: ' + e.message + '\n\n¿Está conectado el NAS?');
     }
   }
 
@@ -622,10 +652,10 @@ const App = (() => {
       const items = await Almacen.listar();
       const pintar = filtro => {
         const f = Catalogo.normalizar(filtro);
-        const vis = items.filter(it => !f || Catalogo.normalizar(`${it.numero} ${it.cliente} ${it.referencia}`).includes(f));
-        lista.innerHTML = vis.length ? `<table class="tabla"><thead><tr><th>Número</th><th>Cliente</th><th>Referencia</th><th>Fecha</th><th class="num">Total</th></tr></thead><tbody>
+        const vis = items.filter(it => !f || Catalogo.normalizar(`${it.numero} ${it.codigo} ${it.cliente} ${it.referencia} ${it.ruta.join(' ')}`).includes(f));
+        lista.innerHTML = vis.length ? `<table class="tabla"><thead><tr><th>Número</th><th>Código</th><th>Cliente</th><th>Referencia</th><th>Fecha</th><th class="num">Total</th></tr></thead><tbody>
           ${vis.map(it => `<tr class="clicable" data-k="${items.indexOf(it)}">
-            <td>${esc(it.numero)}</td><td>${esc(it.cliente)}</td><td>${esc(it.referencia)}</td>
+            <td>${esc(it.numero)}</td><td>${esc(it.codigo || it.ruta[0] || '')}</td><td>${esc(it.cliente)}</td><td>${esc(it.referencia)}</td>
             <td>${it.fecha ? new Date(it.fecha).toLocaleDateString('es-ES') : ''}</td>
             <td class="num">${it.total != null ? euros(it.total) : ''}</td></tr>`).join('')}</tbody></table>`
           : '<p>No hay presupuestos guardados' + (f ? ' que coincidan' : ' todavía') + '.</p>';
@@ -638,7 +668,7 @@ const App = (() => {
         if (!tr) return;
         const it = items[+tr.dataset.k];
         try {
-          const r = await Almacen.abrir(it.anyo, it.carpeta);
+          const r = await Almacen.abrir(it);
           pres = prepararCargado(r.pres); fechaArchivo = r.fecha; cambios = false; borrarBorrador();
           dialogo.close(); pintarTodo();
         } catch (err) { alert('No se ha podido abrir: ' + err.message); }
@@ -785,11 +815,16 @@ const App = (() => {
     });
   }
 
-  function notificar(texto) {
+  function notificar(texto, enlace) {
     const n = $('#notificacion');
     n.textContent = texto; n.hidden = false;
+    if (enlace) {
+      const a = document.createElement('a');
+      a.href = enlace.url; a.target = '_blank'; a.textContent = enlace.texto;
+      n.append(' ', a);
+    }
     clearTimeout(notificar.t);
-    notificar.t = setTimeout(() => { n.hidden = true; }, 3500);
+    notificar.t = setTimeout(() => { n.hidden = true; }, enlace ? 10000 : 3500);
   }
 
   // ------------------------------------------------------------- arranque
@@ -828,7 +863,7 @@ const App = (() => {
         try { await fn(); } catch (e) {
           if (e.name === 'AbortError') return;
           $('#inicio-error').textContent = e.name === 'NotFoundError'
-            ? `No encuentro ${Almacen.ARCHIVO_CATALOGO} en esa carpeta. Elige la carpeta donde está index.html y el catálogo.`
+            ? `No encuentro ${Almacen.PROGRAMA}/${Almacen.ARCHIVO_CATALOGO} en esa carpeta. Elige la carpeta que contiene ${Almacen.PROGRAMA} y ${Almacen.PRESUPUESTOS}.`
             : e.message;
         }
       };
@@ -870,7 +905,7 @@ const App = (() => {
       ]);
     }
     pantallaInicio(
-      'Elige la carpeta compartida del NAS donde están <strong>index.html</strong> y <strong>catalogo.xlsx</strong>.<br>' +
+      `Elige la carpeta compartida del NAS que contiene <strong>${Almacen.PROGRAMA}</strong> y <strong>${Almacen.PRESUPUESTOS}</strong>.<br>` +
       'Solo hay que hacerlo una vez en cada ordenador.',
       [['Elegir carpeta', async () => { await Almacen.elegirCarpeta(); await conCarpeta(); }, true]]);
   }

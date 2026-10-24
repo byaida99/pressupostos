@@ -61,7 +61,7 @@ const Imprimir = (() => {
     return textos.join(' · ');
   }
 
-  function cliente(pres, res, cat) {
+  function htmlCliente(pres, res, cat) {
     const p = cat.parametros;
     const validez = p.validezDias ? `${dec(p.validezDias, 0)} días` : '';
     const vence = p.validezDias && pres.fecha
@@ -107,7 +107,7 @@ const Imprimir = (() => {
 
       <section class="cli-cliente">
         <div>
-          <div class="cli-rotulo">Cliente</div>
+          <div class="cli-rotulo">Cliente${pres.cliente.codigo && pres.cliente.codigo !== '1000' ? ` · nº ${esc(pres.cliente.codigo)}` : ''}</div>
           <div class="cli-valor">${esc(pres.cliente.nombre || '—')}</div>
           ${pres.cliente.contacto ? `<div class="cli-contacto">${esc(pres.cliente.contacto)}</div>` : ''}
         </div>
@@ -144,7 +144,50 @@ const Imprimir = (() => {
         ${p.textoPie ? `<br>${esc(p.textoPie)}` : ''}
       </footer>
     </div>`;
-    imprimir(html, nombreArchivo(pres));
+    return html;
+  }
+
+  const cliente = (pres, res, cat) => imprimir(htmlCliente(pres, res, cat), nombreArchivo(pres));
+
+  // PDF del cliente como archivo (para guardarlo junto al presupuesto).
+  // Se dibuja la página con html2canvas y se pasa a A4 con jsPDF, cortando
+  // las páginas entre filas para no partir ninguna.
+  async function pdfCliente(pres, res, cat) {
+    const MARGEN = 15, ANCHO_MM = 210 - 2 * MARGEN, ALTO_MM = 297 - 2 * MARGEN;
+    const ANCHO_PX = 680, ESCALA = 2;
+    const cont = document.createElement('div');
+    cont.style.cssText = `position:fixed;left:-10000px;top:0;width:${ANCHO_PX}px;background:#fff`;
+    cont.innerHTML = htmlCliente(pres, res, cat);
+    document.body.appendChild(cont);
+    try {
+      await Promise.all([...cont.querySelectorAll('img')].map(img => img.complete ? null
+        : new Promise(ok => { img.onload = ok; img.onerror = () => { img.remove(); ok(); }; })));
+      const arriba = cont.getBoundingClientRect().top;
+      const cortes = [...cont.querySelectorAll('.cli > *, .cli-tabla thead, .cli-tabla tbody tr')]
+        .map(el => el.getBoundingClientRect().bottom - arriba).sort((a, b) => a - b);
+      const lienzo = await html2canvas(cont, { scale: ESCALA, backgroundColor: '#ffffff', logging: false });
+      const altoPagina = ALTO_MM * ANCHO_PX / ANCHO_MM;
+      const total = lienzo.height / ESCALA;
+      const doc = new jspdf.jsPDF({ unit: 'mm', format: 'a4' });
+      doc.setProperties({ title: nombreArchivo(pres) });
+      for (let inicio = 0, pagina = 0; inicio < total - 1; pagina++) {
+        let fin = Math.min(total, inicio + altoPagina);
+        if (fin < total) {
+          const corte = cortes.filter(c => c > inicio + 20 && c <= fin).pop();
+          if (corte) fin = corte;
+        }
+        const trozo = document.createElement('canvas');
+        trozo.width = lienzo.width;
+        trozo.height = Math.ceil((fin - inicio) * ESCALA);
+        trozo.getContext('2d').drawImage(lienzo, 0, -Math.floor(inicio * ESCALA));
+        if (pagina) doc.addPage();
+        doc.addImage(trozo.toDataURL('image/jpeg', 0.92), 'JPEG', MARGEN, MARGEN, ANCHO_MM, (fin - inicio) * ANCHO_MM / ANCHO_PX);
+        inicio = fin;
+      }
+      return doc.output('blob');
+    } finally {
+      cont.remove();
+    }
   }
 
   function completo(pres, res, cat) {
@@ -204,5 +247,5 @@ const Imprimir = (() => {
     imprimir(html, nombreArchivo(pres, 'detalle'));
   }
 
-  return { cliente, completo };
+  return { cliente, pdfCliente, completo, nombreArchivo };
 })();

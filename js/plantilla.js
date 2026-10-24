@@ -44,6 +44,7 @@ const Plantilla = (() => {
 
     XLSX.utils.book_append_sheet(libro, hoja([
       ['Campo', 'Valor'],
+      ['Código cliente (vacío o 1000 = sin código)', ''],
       ['Cliente', ''],
       ['Contacto', ''],
       ['Referencia', ''],
@@ -121,11 +122,12 @@ const Plantilla = (() => {
   function leer(buffer, cat) {
     const libro = XLSX.read(buffer, { type: 'array' });
     const errores = [];
-    const r = { cliente: { nombre: '', contacto: '' }, referencia: '', descripcion: '', descuento: null, muebles: [], errores };
+    const r = { cliente: { codigo: '', nombre: '', contacto: '' }, referencia: '', descripcion: '', descuento: null, muebles: [], errores };
 
     (filasDe(libro, 'Datos') || []).forEach(f => {
       const campo = norm(f.col('campo')), valor = String(f.col('valor') ?? '').trim();
-      if (campo.startsWith('cliente')) r.cliente.nombre = valor;
+      if (campo.startsWith('codigo')) r.cliente.codigo = valor;
+      else if (campo.startsWith('cliente')) r.cliente.nombre = valor;
       else if (campo.startsWith('contacto')) r.cliente.contacto = valor;
       else if (campo.startsWith('referencia')) r.referencia = valor;
       else if (campo.startsWith('descripcion')) r.descripcion = valor;
