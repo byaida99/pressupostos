@@ -1,0 +1,670 @@
+{
+  "version": 5,
+  "numero": "2026-003",
+  "fecha": "2026-10-23",
+  "cliente": {
+    "nombre": "",
+    "contacto": ""
+  },
+  "referencia": "567dbj",
+  "descripcion": "skjdvb\nsdjvbl\nsdvlnmagi",
+  "descuento": {
+    "activo": false,
+    "porcentaje": 24.1
+  },
+  "recargoActivo": true,
+  "muebles": [
+    {
+      "nombre": "Mueble 800×2100×600",
+      "activo": true,
+      "secciones": [
+        {
+          "familia": "MEL",
+          "acabado": "Textil Beige",
+          "grosor": 19,
+          "medida": "280x207",
+          "modo": "TABLERO_ENTERO",
+          "piezas": [
+            {
+              "nombre": "Lateral",
+              "largo": 2100,
+              "ancho": 600,
+              "cantidad": 2,
+              "cantos": [
+                false,
+                false,
+                false,
+                false
+              ],
+              "acabado": "Sin acabado",
+              "dosCaras": false
+            },
+            {
+              "nombre": "Base",
+              "largo": 800,
+              "ancho": 600,
+              "cantidad": 1,
+              "cantos": [
+                false,
+                false,
+                false,
+                false
+              ],
+              "acabado": "Sin acabado",
+              "dosCaras": false
+            },
+            {
+              "nombre": "Tapa",
+              "largo": 800,
+              "ancho": 600,
+              "cantidad": 1,
+              "cantos": [
+                false,
+                false,
+                false,
+                false
+              ],
+              "acabado": "Sin acabado",
+              "dosCaras": false
+            },
+            {
+              "nombre": "Estante fijo",
+              "largo": 800,
+              "ancho": 600,
+              "cantidad": 1,
+              "cantos": [
+                false,
+                false,
+                false,
+                false
+              ],
+              "acabado": "Sin acabado",
+              "dosCaras": false
+            },
+            {
+              "nombre": "Estante móvil",
+              "largo": 800,
+              "ancho": 600,
+              "cantidad": 2,
+              "cantos": [
+                false,
+                false,
+                false,
+                false
+              ],
+              "acabado": "Sin acabado",
+              "dosCaras": false
+            },
+            {
+              "nombre": "Frontal",
+              "largo": 2100,
+              "ancho": 400,
+              "cantidad": 2,
+              "cantos": [
+                false,
+                false,
+                false,
+                false
+              ],
+              "acabado": "Sin acabado",
+              "dosCaras": false
+            }
+          ],
+          "excluir": {}
+        },
+        {
+          "familia": "MEL",
+          "acabado": "Textil Beige",
+          "grosor": 10,
+          "medida": "280x207",
+          "modo": "TABLERO_ENTERO",
+          "piezas": [
+            {
+              "nombre": "Trasera",
+              "largo": 800,
+              "ancho": 2100,
+              "cantidad": 1,
+              "cantos": [
+                false,
+                false,
+                false,
+                false
+              ],
+              "acabado": "Sin acabado",
+              "dosCaras": false
+            }
+          ],
+          "excluir": {}
+        }
+      ],
+      "extras": []
+    },
+    {
+      "nombre": "Mueble 1000×2100×600",
+      "secciones": [
+        {
+          "familia": "MEL",
+          "acabado": "Textil Beige",
+          "grosor": 19,
+          "medida": "280x207",
+          "modo": "TABLERO_ENTERO",
+          "piezas": [
+            {
+              "nombre": "Lateral",
+              "largo": 2100,
+              "ancho": 600,
+              "cantidad": 2,
+              "cantos": [
+                false,
+                false,
+                false,
+                false
+              ],
+              "acabado": "Sin acabado",
+              "dosCaras": false
+            },
+            {
+              "nombre": "Base",
+              "largo": 1000,
+              "ancho": 600,
+              "cantidad": 1,
+              "cantos": [
+                false,
+                false,
+                false,
+                false
+              ],
+              "acabado": "Sin acabado",
+              "dosCaras": false
+            },
+            {
+              "nombre": "Tapa",
+              "largo": 1000,
+              "ancho": 600,
+              "cantidad": 1,
+              "cantos": [
+                false,
+                false,
+                false,
+                false
+              ],
+              "acabado": "Sin acabado",
+              "dosCaras": false
+            },
+            {
+              "nombre": "Estante fijo",
+              "largo": 1000,
+              "ancho": 600,
+              "cantidad": 1,
+              "cantos": [
+                false,
+                false,
+                false,
+                false
+              ],
+              "acabado": "Sin acabado",
+              "dosCaras": false
+            },
+            {
+              "nombre": "Estante móvil",
+              "largo": 1000,
+              "ancho": 600,
+              "cantidad": 2,
+              "cantos": [
+                false,
+                false,
+                false,
+                false
+              ],
+              "acabado": "Sin acabado",
+              "dosCaras": false
+            }
+          ],
+          "excluir": {}
+        },
+        {
+          "familia": "MEL",
+          "acabado": "Textil Beige",
+          "grosor": 10,
+          "medida": "280x207",
+          "modo": "TABLERO_ENTERO",
+          "piezas": [
+            {
+              "nombre": "Trasera",
+              "largo": 1000,
+              "ancho": 2100,
+              "cantidad": 1,
+              "cantos": [
+                false,
+                false,
+                false,
+                false
+              ],
+              "acabado": "Sin acabado",
+              "dosCaras": false
+            }
+          ],
+          "excluir": {}
+        },
+        {
+          "familia": "MDF",
+          "acabado": "Hidrofugo",
+          "grosor": 19,
+          "medida": "280x207",
+          "modo": "TABLERO_ENTERO",
+          "piezas": [
+            {
+              "nombre": "Frontal",
+              "largo": 2100,
+              "ancho": 500,
+              "cantidad": 2,
+              "cantos": [
+                false,
+                false,
+                false,
+                false
+              ],
+              "acabado": "Lacado",
+              "dosCaras": false
+            }
+          ],
+          "excluir": {}
+        }
+      ],
+      "extras": []
+    }
+  ],
+  "precios": {
+    "familias": [
+      {
+        "codigo": "MEL",
+        "nombre": "Melamina",
+        "canto": "CANTO",
+        "acabadoSuperficial": false,
+        "medida": "280x207"
+      },
+      {
+        "codigo": "MDF",
+        "nombre": "Tablero de Fibra de Densidad Media",
+        "canto": "PULIDO",
+        "acabadoSuperficial": true,
+        "medida": "280x207"
+      },
+      {
+        "codigo": "RXPT",
+        "nombre": "Rechapado",
+        "canto": "CANTO",
+        "acabadoSuperficial": true,
+        "medida": "244x122"
+      }
+    ],
+    "tableros": [
+      {
+        "familia": "MEL",
+        "codigo": "F425",
+        "acabado": "Textil Beige",
+        "grosor": 10,
+        "precioM2": 8.89,
+        "cantoFino": 0.5,
+        "cantoGrueso": 0.73
+      },
+      {
+        "familia": "MEL",
+        "codigo": "F425",
+        "acabado": "Textil Beige",
+        "grosor": 16,
+        "precioM2": 10.04,
+        "cantoFino": 0.5,
+        "cantoGrueso": 0.73
+      },
+      {
+        "familia": "MEL",
+        "codigo": "F425",
+        "acabado": "Textil Beige",
+        "grosor": 19,
+        "precioM2": 11.13,
+        "cantoFino": 0.5,
+        "cantoGrueso": 0.73
+      },
+      {
+        "familia": "MEL",
+        "codigo": "F425",
+        "acabado": "Textil Beige",
+        "grosor": 30,
+        "precioM2": 15.6,
+        "cantoFino": 0.5,
+        "cantoGrueso": 0.73
+      },
+      {
+        "familia": "MEL",
+        "codigo": "W1100",
+        "acabado": "Blanc Alpino",
+        "grosor": 10,
+        "precioM2": 16.08,
+        "cantoFino": 0.38,
+        "cantoGrueso": 0.55
+      },
+      {
+        "familia": "MEL",
+        "codigo": "W1100",
+        "acabado": "Blanc Alpino",
+        "grosor": 16,
+        "precioM2": 17.19,
+        "cantoFino": 0.38,
+        "cantoGrueso": 0.55
+      },
+      {
+        "familia": "MEL",
+        "codigo": "W1100",
+        "acabado": "Blanc Alpino",
+        "grosor": 19,
+        "precioM2": 18.45,
+        "cantoFino": 0.38,
+        "cantoGrueso": 0.55
+      },
+      {
+        "familia": "MEL",
+        "codigo": "W1100",
+        "acabado": "Blanc Alpino",
+        "grosor": 30,
+        "precioM2": 27.06,
+        "cantoFino": 0.38,
+        "cantoGrueso": 0.55
+      },
+      {
+        "familia": "MEL",
+        "codigo": "U750",
+        "acabado": "Gris Raton",
+        "grosor": 10,
+        "precioM2": 15.58,
+        "cantoFino": 0.38,
+        "cantoGrueso": 0.55
+      },
+      {
+        "familia": "MEL",
+        "codigo": "U750",
+        "acabado": "Gris Raton",
+        "grosor": 19,
+        "precioM2": 17.99,
+        "cantoFino": 0.38,
+        "cantoGrueso": 0.55
+      },
+      {
+        "familia": "MEL",
+        "codigo": "U963",
+        "acabado": "Gris Sombra",
+        "grosor": 10,
+        "precioM2": 8.89,
+        "cantoFino": 0.38,
+        "cantoGrueso": 0.55
+      },
+      {
+        "familia": "MEL",
+        "codigo": "U963",
+        "acabado": "Gris Sombra",
+        "grosor": 16,
+        "precioM2": 10.04,
+        "cantoFino": 0.38,
+        "cantoGrueso": 0.55
+      },
+      {
+        "familia": "MEL",
+        "codigo": "U963",
+        "acabado": "Gris Sombra",
+        "grosor": 19,
+        "precioM2": 11.13,
+        "cantoFino": 0.38,
+        "cantoGrueso": 0.55
+      },
+      {
+        "familia": "MEL",
+        "codigo": "U963",
+        "acabado": "Gris Sombra",
+        "grosor": 30,
+        "precioM2": 15.6,
+        "cantoFino": 0.38,
+        "cantoGrueso": 0.55
+      },
+      {
+        "familia": "MDF",
+        "codigo": "",
+        "acabado": "Hidrofugo",
+        "grosor": 10,
+        "precioM2": 9.78,
+        "cantoFino": 0,
+        "cantoGrueso": 0
+      },
+      {
+        "familia": "MDF",
+        "codigo": "",
+        "acabado": "Hidrofugo",
+        "grosor": 16,
+        "precioM2": 14.36,
+        "cantoFino": 0,
+        "cantoGrueso": 0
+      },
+      {
+        "familia": "MDF",
+        "codigo": "",
+        "acabado": "Hidrofugo",
+        "grosor": 19,
+        "precioM2": 17.05,
+        "cantoFino": 0,
+        "cantoGrueso": 0
+      },
+      {
+        "familia": "MDF",
+        "codigo": "",
+        "acabado": "Hidrofugo",
+        "grosor": 30,
+        "precioM2": 28.01,
+        "cantoFino": 0,
+        "cantoGrueso": 0
+      },
+      {
+        "familia": "MDF",
+        "codigo": "",
+        "acabado": "Normal",
+        "grosor": 10,
+        "precioM2": 6.97,
+        "cantoFino": 0,
+        "cantoGrueso": 0
+      },
+      {
+        "familia": "MDF",
+        "codigo": "",
+        "acabado": "Normal",
+        "grosor": 16,
+        "precioM2": 9.8,
+        "cantoFino": 0,
+        "cantoGrueso": 0
+      },
+      {
+        "familia": "MDF",
+        "codigo": "",
+        "acabado": "Normal",
+        "grosor": 19,
+        "precioM2": 11.65,
+        "cantoFino": 0,
+        "cantoGrueso": 0
+      },
+      {
+        "familia": "MDF",
+        "codigo": "",
+        "acabado": "Normal",
+        "grosor": 30,
+        "precioM2": 19.29,
+        "cantoFino": 0,
+        "cantoGrueso": 0
+      },
+      {
+        "familia": "RXPT",
+        "codigo": "",
+        "acabado": "Roure AGL",
+        "grosor": 11,
+        "precioM2": 34.54,
+        "cantoFino": 0.44,
+        "cantoGrueso": 0.77
+      },
+      {
+        "familia": "RXPT",
+        "codigo": "",
+        "acabado": "Roure AGL",
+        "grosor": 16,
+        "precioM2": 34.79,
+        "cantoFino": 0.44,
+        "cantoGrueso": 0.77
+      },
+      {
+        "familia": "RXPT",
+        "codigo": "",
+        "acabado": "Roure AGL",
+        "grosor": 19,
+        "precioM2": 36.68,
+        "cantoFino": 0.44,
+        "cantoGrueso": 0.77
+      },
+      {
+        "familia": "RXPT",
+        "codigo": "",
+        "acabado": "Roure AGL",
+        "grosor": 31,
+        "precioM2": 54.56,
+        "cantoFino": 0.44,
+        "cantoGrueso": 0.77
+      },
+      {
+        "familia": "RXPT",
+        "codigo": "",
+        "acabado": "Roure MDF",
+        "grosor": 11,
+        "precioM2": 39.62,
+        "cantoFino": 0.44,
+        "cantoGrueso": 0.77
+      },
+      {
+        "familia": "RXPT",
+        "codigo": "",
+        "acabado": "Roure MDF",
+        "grosor": 16,
+        "precioM2": 41.16,
+        "cantoFino": 0.44,
+        "cantoGrueso": 0.77
+      },
+      {
+        "familia": "RXPT",
+        "codigo": "",
+        "acabado": "Roure MDF",
+        "grosor": 19,
+        "precioM2": 44.72,
+        "cantoFino": 0.44,
+        "cantoGrueso": 0.77
+      }
+    ],
+    "acabados": [
+      {
+        "familia": "MDF",
+        "nombre": "Lacado",
+        "costeM2": 45
+      },
+      {
+        "familia": "MDF",
+        "nombre": "Barnizado",
+        "costeM2": 35
+      },
+      {
+        "familia": "RXPT",
+        "nombre": "Barnizado",
+        "costeM2": 35
+      }
+    ],
+    "extras": [
+      {
+        "nombre": "Bissagra Amortiguada",
+        "precio": 2.8
+      },
+      {
+        "nombre": "Nivellador base",
+        "precio": 1.45
+      },
+      {
+        "nombre": "Barra Penjador",
+        "precio": 2.75
+      },
+      {
+        "nombre": "Suport barra",
+        "precio": 0.27
+      },
+      {
+        "nombre": "Calaix guia Emuca",
+        "precio": 52.51
+      },
+      {
+        "nombre": "Calaix guia Blum",
+        "precio": 81.94
+      },
+      {
+        "nombre": "Escambell Calaixos",
+        "precio": 50
+      },
+      {
+        "nombre": "Fressat Unyero",
+        "precio": 11.66
+      },
+      {
+        "nombre": "Fressat LED",
+        "precio": 5
+      },
+      {
+        "nombre": "Base Armari",
+        "precio": 20.49
+      }
+    ],
+    "medidas": [
+      "280x207",
+      "244x122",
+      "305x122",
+      "366x207"
+    ],
+    "recargo": [
+      {
+        "desde": 0,
+        "porcentaje": 20
+      },
+      {
+        "desde": 100,
+        "porcentaje": 15
+      },
+      {
+        "desde": 300,
+        "porcentaje": 10
+      },
+      {
+        "desde": 1000,
+        "porcentaje": 5
+      }
+    ],
+    "parametros": {
+      "mermaPct": 20,
+      "corteMl": 1.1,
+      "canteadoMl": 1.6,
+      "cncMl": 2.33,
+      "rolloCantoMl": 25,
+      "cantoGruesoDesdeMm": 30,
+      "descuentoCarpinteroPct": 24.1,
+      "ivaPct": 21,
+      "mostrarIva": false,
+      "validezDias": 30,
+      "logo": "LOGO.JPG",
+      "empresa": "",
+      "textoPie": "",
+      "pagoInicialPct": 50,
+      "iban": "ESXX XXXX XXXX XXXX XXXX XXXX"
+    },
+    "avisos": [],
+    "fecha": 1792794381794
+  },
+  "resumen": {
+    "total": 945.09
+  }
+}

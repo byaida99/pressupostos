@@ -7,11 +7,15 @@ const Calculo = (() => {
   const CONCEPTOS = [
     ['tablero', 'Tablero'],
     ['acabado', 'Acabado sup.'],
+    ['lijado', 'Lijado'],
     ['canto', 'Canto material'],
     ['corte', 'Corte'],
     ['canteado', 'Canteado / pulido'],
     ['cnc', 'CNC']
   ];
+
+  // Conceptos que forman el acabado superficial (opcional)
+  const DE_ACABADO = ['acabado', 'lijado'];
 
   const num = Catalogo.numero;
 
@@ -27,7 +31,7 @@ const Calculo = (() => {
     const res = {
       piezas: [], m2Piezas: 0, m2Neto: 0, tableros: 0, m2Bruto: 0,
       mlCorte: 0, mlCanteado: 0, rollos: 0,
-      costes: { tablero: 0, acabado: 0, canto: 0, corte: 0, canteado: 0, cnc: 0 },
+      costes: { tablero: 0, acabado: 0, lijado: 0, canto: 0, corte: 0, canteado: 0, cnc: 0 },
       subtotal: 0, aviso: null
     };
     const fam = Catalogo.familia(cat, sec.familia);
@@ -40,7 +44,10 @@ const Calculo = (() => {
 
     const [anchoCm, altoCm] = String(sec.medida || '').split('x').map(Number);
     const m2Tablero = (anchoCm * altoCm) / 10000 || 0;
+    // Canto: se cobra el material y el canteado de los lados marcados.
+    // Pulido (MDF): los lados marcados se pulen; se cobra igual que el canteado, sin material.
     const llevaCanto = fam.canto === 'CANTO';
+    const marcaLados = llevaCanto || fam.canto === 'PULIDO';
     const precioCanto = llevaCanto
       ? (tab.grosor >= p.cantoGruesoDesdeMm ? tab.cantoGrueso : tab.cantoFino)
       : 0;
@@ -53,26 +60,30 @@ const Calculo = (() => {
       if (L > 0 && A > 0) {
         const m2u = (L * A) / 1e6;
         let cantoU = 0;
-        if (llevaCanto) {
+        if (marcaLados) {
           const c = pz.cantos || [];
           cantoU = ((c[0] ? L : 0) + (c[1] ? L : 0) + (c[2] ? A : 0) + (c[3] ? A : 0)) / 1000;
         }
-        let acabadoU = 0;
+        let acabadoU = 0, lijadoU = 0;
         if (fam.acabadoSuperficial && pz.acabado && pz.acabado !== Catalogo.SIN_ACABADO) {
+          const caras = pz.dosCaras ? 2 : 1;
           const ac = Catalogo.acabadosDe(cat, sec.familia).find(a => a.nombre === pz.acabado);
-          if (ac) acabadoU = m2u * ac.costeM2 * (pz.dosCaras ? 2 : 1);
+          if (ac) acabadoU = m2u * ac.costeM2 * caras;
+          // Rechapado: antes de barnizar se lijan las caras que llevan acabado
+          lijadoU = m2u * (fam.lijadoM2 || 0) * caras;
         }
         r.m2 = m2u * n;
         r.mlCorte = (2 * (L + A) / 1000) * n;
         const costeCanto = cantoU * precioCanto * n;
-        const costeAcabado = acabadoU * n;
-        r.coste = r.m2 * tab.precioM2 + costeCanto + costeAcabado;
+        const costeAcabado = acabadoU * n, costeLijado = lijadoU * n;
+        r.coste = r.m2 * tab.precioM2 + costeCanto + costeAcabado + costeLijado;
 
         res.m2Piezas += r.m2;
         res.mlCorte += r.mlCorte;
         mlCanto += cantoU * n;
         res.costes.canto += costeCanto;
         res.costes.acabado += costeAcabado;
+        res.costes.lijado += costeLijado;
       }
       res.piezas.push(r);
     });
@@ -87,8 +98,7 @@ const Calculo = (() => {
     }
     res.m2Bruto = res.tableros * m2Tablero;
 
-    // Pulido: se cobra el canteado de todo el perímetro, sin material de canto
-    res.mlCanteado = fam.canto === 'PULIDO' ? res.mlCorte : fam.canto === 'CANTO' ? mlCanto : 0;
+    res.mlCanteado = mlCanto;
     res.rollos = llevaCanto && p.rolloCantoMl > 0 ? Math.ceil(mlCanto / p.rolloCantoMl) : 0;
     res.costes.corte = res.mlCorte * p.corteMl;
     res.costes.canteado = res.mlCanteado * p.canteadoMl;
@@ -107,33 +117,38 @@ const Calculo = (() => {
     const muebles = pres.muebles.map(mu => {
       const secciones = mu.secciones.map(s => calcularSeccion(s, cat));
       const extras = mu.extras.map(e => num(e.precio) * num(e.cantidad));
+      const herrajes = (mu.herrajes || []).map(h => num(h.precio) * num(h.cantidad));
       let base = 0, acabado = 0, material = 0;
       secciones.forEach((r, i) => {
         const excl = mu.secciones[i].excluir || {};
         CONCEPTOS.forEach(([k]) => {
           if (excl[k]) return;
-          if (k === 'acabado') acabado += r.costes[k];
+          if (DE_ACABADO.includes(k)) acabado += r.costes[k];
           else base += r.costes[k];
           if (k === 'tablero' || k === 'canto') material += r.costes[k];
         });
       });
       extras.forEach((coste, i) => { if (!mu.extras[i].excluir) base += coste; });
-      return { secciones, extras, base, acabado, material };
+      herrajes.forEach((coste, i) => { if (!mu.herrajes[i].excluir) base += coste; });
+      return { secciones, extras, herrajes, base, acabado, material };
     });
 
-    const suma = k => muebles.reduce((t, m) => t + m[k], 0);
-    const base = suma('base'), acabado = suma('acabado'), material = suma('material');
+    // Los muebles desactivados se calculan (para verlos en pantalla) pero no suman
+    muebles.forEach((m, i) => { m.activo = pres.muebles[i].activo !== false; });
+    const suma = k => muebles.reduce((t, m) => t + (m.activo ? m[k] : 0), 0);
+    const base = suma('base'), acabado = suma('acabado');
 
-    const recargoBasePct = porcentajeRecargo(base, cat.recargo);
+    // El recargo por escala se decide con el total del proyecto, acabado incluido,
+    // y se aplica igual a cada mueble para que la suma de los muebles sea el total
+    const recargoPct = pres.recargoActivo === false ? 0 : porcentajeRecargo(base + acabado, cat.recargo);
     const descuentoPct = pres.descuento?.activo ? num(pres.descuento.porcentaje) : 0;
-    // El acabado superficial se presenta como opcional: lleva su propio recargo
-    const recargoAcabadoPct = porcentajeRecargo(acabado, cat.recargo);
 
     muebles.forEach(m => {
-      m.recargo = m.base * recargoBasePct / 100;
+      m.recargo = m.base * recargoPct / 100;
       m.descuento = m.material * descuentoPct / 100;
       m.precio = m.base + m.recargo - m.descuento;
-      m.acabadoTotal = m.acabado * (1 + recargoAcabadoPct / 100);
+      // El acabado superficial se presenta aparte, como opcional
+      m.acabadoTotal = m.acabado * (1 + recargoPct / 100);
       m.total = m.precio + m.acabadoTotal;
     });
 
@@ -141,16 +156,20 @@ const Calculo = (() => {
     const descuento = suma('descuento');
     const subtotal = suma('precio');
     const acabadoTotal = suma('acabadoTotal');
+    // El recargo se aplica después de sumar el acabado: sobre materiales + acabado
+    const recargo = (base + acabado) * recargoPct / 100;
     const total = subtotal + acabadoTotal;
     const iva = total * (p.ivaPct || 0) / 100;
+    const pagoInicialPct = p.pagoInicialPct ?? 50;
 
     return {
       muebles,
-      base, recargoBasePct, recargoBase, descuentoPct, descuento, subtotal,
-      acabado, recargoAcabadoPct, acabadoTotal,
-      total, iva, totalConIva: total + iva
+      base, recargoPct, recargo, recargoBase, descuentoPct, descuento, subtotal,
+      acabado, acabadoTotal,
+      total, iva, totalConIva: total + iva,
+      pagoInicialPct, pagoInicial: (total + iva) * pagoInicialPct / 100
     };
   }
 
-  return { CONCEPTOS, calcular, porcentajeRecargo };
+  return { CONCEPTOS, DE_ACABADO, calcular, porcentajeRecargo };
 })();

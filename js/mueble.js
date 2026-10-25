@@ -53,12 +53,14 @@ const Mueble = (() => {
       if (cantidad > 0) piezas.push({ ...mat, nombre, largo, ancho: anchoPieza, cantidad });
     };
 
+    // Los nombres coinciden con la pestaña «Piezas» del catálogo, que da los cantos de cada una
+    // (frontales y estantes móviles: 4 lados; laterales, sobre, base, fijos y divisoria: el delantero)
     add('Lateral', alto, fondo, int, 2);
     add('Base', ancho, fondo, int);
-    add('Tapa', ancho, fondo, int);
+    add('Sobre', ancho, fondo, int);
     add('Estante fijo', ancho, fondo, int, entero('gm-fijos'));
     add('Estante móvil', ancho, fondo, int, entero('gm-moviles'));
-    add('División', alto, fondo, int, entero('gm-divisiones'));
+    add('Divisoria', alto, fondo, int, entero('gm-divisiones'));
     add('Trasera', ancho, alto, tra);
     const frontales = entero('gm-frontales');
     add('Frontal', alto, frontales ? ancho / frontales : 0, ext, frontales);

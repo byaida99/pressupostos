@@ -9,6 +9,7 @@ const Plantilla = (() => {
 
   const CAB_PIEZAS = ['Mueble', 'Material', 'Tablero', 'Grosor (mm)', 'Pieza', 'Largo (mm)', 'Ancho (mm)', 'Cantidad', 'Cantos', 'Acabado', '2 caras'];
   const CAB_EXTRAS = ['Mueble', 'Producto', 'Precio (€/ud)', 'Cantidad'];
+  const CAB_HERRAJES = ['Mueble', 'Herraje', 'Precio (€/ud)', 'Cantidad'];
 
   function hoja(filas, anchos) {
     const ws = XLSX.utils.aoa_to_sheet(filas);
@@ -27,23 +28,24 @@ const Plantilla = (() => {
       [''],
       ['1. Rellena «Datos» con el cliente.'],
       ['2. En «Piezas» pon una fila por pieza. Todas las filas con el mismo nombre en la columna Mueble van al mismo mueble.'],
-      ['3. En «Extras» pon los herrajes y accesorios de cada mueble.'],
+      ['3. En «Herrajes» pon las bisagras, cajones… de cada mueble, y en «Extras» el resto de accesorios.'],
       ['4. En la app: ⋯ → Importar plantilla Excel.'],
       [''],
       ['Columnas de «Piezas»:'],
       ['• Material: código o nombre de la familia (MEL, Melamina, MDF…). Mira la pestaña «Materiales».'],
       ['• Tablero: código o color (W1100, Blanc Alpino, Hidrofugo…). Grosor en mm.'],
-      ['• Cantos: L1 L2 A1 A2 (separados por espacios), «todos», «largos» o «anchos». Vacío = sin canto.'],
+      ['• Cantos: L1 L2 A1 A2 (separados por espacios), «todos», «largos» o «anchos». Vacío = sin canto. En materiales pulidos (MDF) son los lados que se pulen.'],
       ['• Acabado: solo para materiales que lo admiten (Lacado, Barnizado). Vacío = el de por defecto; escribe «Sin acabado» si no lleva.'],
       ['• 2 caras: «Sí» si el acabado va por las dos caras.'],
       ['• Si en Material, Tablero y Grosor dejas una celda vacía, se usa lo de la fila de arriba.'],
       [''],
-      ['En «Extras», si dejas el precio vacío se usa el del catálogo.'],
+      ['En «Herrajes» y «Extras», si dejas el precio vacío se usa el del catálogo.'],
       ['Las filas de ejemplo se pueden borrar o sobrescribir.']
     ], [110]), 'Instrucciones');
 
     XLSX.utils.book_append_sheet(libro, hoja([
       ['Campo', 'Valor'],
+      ['Código cliente (vacío o 1000 = sin código)', ''],
       ['Cliente', ''],
       ['Contacto', ''],
       ['Referencia', ''],
@@ -58,6 +60,12 @@ const Plantilla = (() => {
       ['Armario dormitorio', famEj.codigo, trasera.codigo || trasera.acabado, trasera.grosor, 'Trasera', 2100, 800, 1, '', '', '']
     ], [22, 12, 18, 11, 22, 11, 11, 9, 16, 14, 8]), 'Piezas');
 
+    const herrajeEj = Catalogo.herrajes(cat)[0];
+    XLSX.utils.book_append_sheet(libro, hoja([
+      CAB_HERRAJES,
+      ['Armario dormitorio', herrajeEj ? herrajeEj.nombre : '', '', 4]
+    ], [22, 30, 14, 10]), 'Herrajes');
+
     const extraEj = cat.extras[0];
     XLSX.utils.book_append_sheet(libro, hoja([
       CAB_EXTRAS,
@@ -70,6 +78,8 @@ const Plantilla = (() => {
       mats.push([t.familia, fam?.nombre || '', t.codigo, t.acabado, t.grosor, t.precioM2,
         fam?.acabadoSuperficial ? Catalogo.acabadosDe(cat, t.familia).map(a => a.nombre).join(', ') : '—']);
     });
+    mats.push([], ['Herrajes del catálogo', 'Tipo', 'Precio (€/ud)']);
+    Catalogo.herrajes(cat).forEach(h => mats.push([h.nombre, h.categoria, h.precio]));
     mats.push([], ['Extras del catálogo', 'Precio (€/ud)']);
     cat.extras.forEach(x => mats.push([x.nombre, x.precio]));
     XLSX.utils.book_append_sheet(libro, hoja(mats, [22, 34, 16, 20, 11, 13, 24]), 'Materiales');
@@ -96,16 +106,6 @@ const Plantilla = (() => {
     return ['si', 's', 'x', '1', 'yes', 'true'].includes(t);
   }
 
-  function leerCantos(v) {
-    const t = norm(v).replace(/[,;+]/g, ' ');
-    if (!t) return [false, false, false, false];
-    if (t.startsWith('tod') || t === '4') return [true, true, true, true];
-    if (t.startsWith('larg')) return [true, true, false, false];
-    if (t.startsWith('anch')) return [false, false, true, true];
-    const partes = t.split(/\s+/);
-    return ['l1', 'l2', 'a1', 'a2'].map(k => partes.includes(k));
-  }
-
   function buscarFamilia(cat, texto) {
     const t = norm(texto);
     return cat.familias.find(f => norm(f.codigo) === t || norm(f.nombre) === t);
@@ -121,11 +121,12 @@ const Plantilla = (() => {
   function leer(buffer, cat) {
     const libro = XLSX.read(buffer, { type: 'array' });
     const errores = [];
-    const r = { cliente: { nombre: '', contacto: '' }, referencia: '', descripcion: '', descuento: null, muebles: [], errores };
+    const r = { cliente: { codigo: '', nombre: '', contacto: '' }, referencia: '', descripcion: '', descuento: null, muebles: [], errores };
 
     (filasDe(libro, 'Datos') || []).forEach(f => {
       const campo = norm(f.col('campo')), valor = String(f.col('valor') ?? '').trim();
-      if (campo.startsWith('cliente')) r.cliente.nombre = valor;
+      if (campo.startsWith('codigo')) r.cliente.codigo = valor;
+      else if (campo.startsWith('cliente')) r.cliente.nombre = valor;
       else if (campo.startsWith('contacto')) r.cliente.contacto = valor;
       else if (campo.startsWith('referencia')) r.referencia = valor;
       else if (campo.startsWith('descripcion')) r.descripcion = valor;
@@ -135,7 +136,7 @@ const Plantilla = (() => {
     const mueble = nombre => {
       const n = String(nombre || '').trim() || 'Mueble 1';
       let mu = r.muebles.find(x => x.nombre === n);
-      if (!mu) { mu = { nombre: n, secciones: [], extras: [] }; r.muebles.push(mu); }
+      if (!mu) { mu = { nombre: n, secciones: [], herrajes: [], extras: [] }; r.muebles.push(mu); }
       return mu;
     };
 
@@ -177,24 +178,29 @@ const Plantilla = (() => {
         nombre: String(f.col('pieza')).trim(),
         largo, ancho,
         cantidad: Math.max(1, Math.round(num(f.col('cantidad')) || 1)),
-        cantos: famTab.canto === 'CANTO' ? leerCantos(f.col('cantos')) : [false, false, false, false],
+        cantos: famTab.canto !== 'NO' ? Catalogo.leerCantos(f.col('cantos')) : [false, false, false, false],
         acabado,
         dosCaras: !!siNo(f.col('2 caras')) && famTab.acabadoSuperficial
       });
     });
 
-    (filasDe(libro, 'Extras') || []).forEach(f => {
+    // Herrajes y extras. Un herraje del catálogo escrito en «Extras» también va a herrajes.
+    const leerLinea = (pestana, columna) => f => {
       if (f.vacia) return;
-      const nombre = String(f.col('producto')).trim();
+      const nombre = String(f.col(columna)).trim();
       if (!nombre) return;
-      const x = cat.extras.find(e => norm(e.nombre) === norm(nombre));
+      const h = Catalogo.herraje(cat, nombre);
+      const x = h || cat.extras.find(e => norm(e.nombre) === norm(nombre));
       const precioCelda = f.col('precio');
       const precio = String(precioCelda).trim() !== '' ? num(precioCelda) : x?.precio;
-      if (precio === undefined) { errores.push(`Extras, fila ${f.fila}: «${nombre}» no está en el catálogo y no tiene precio`); return; }
-      mueble(f.col('mueble')).extras.push({
-        producto: x ? x.nombre : '', nombre: x ? x.nombre : nombre, precio, cantidad: num(f.col('cantidad')) || 1
-      });
-    });
+      if (precio === undefined) { errores.push(`${pestana}, fila ${f.fila}: «${nombre}» no está en el catálogo y no tiene precio`); return; }
+      const linea = { producto: x ? x.nombre : '', nombre: x ? x.nombre : nombre, precio, cantidad: num(f.col('cantidad')) || 1 };
+      const mu = mueble(f.col('mueble'));
+      if (h || pestana === 'Herrajes') mu.herrajes.push({ categoria: h ? h.categoria : '', ...linea });
+      else mu.extras.push(linea);
+    };
+    (filasDe(libro, 'Herrajes') || []).forEach(leerLinea('Herrajes', 'herraje'));
+    (filasDe(libro, 'Extras') || []).forEach(leerLinea('Extras', 'producto'));
 
     return r;
   }

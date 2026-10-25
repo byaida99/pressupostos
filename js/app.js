@@ -5,7 +5,8 @@
 
 const App = (() => {
   const SIN = Catalogo.SIN_ACABADO;
-  const CLAVE_BORRADOR = 'presupuesto-borrador-v4';
+  // index_piezas.html guarda su borrador aparte
+  const CLAVE_BORRADOR = 'presupuesto-borrador-v4' + (window.SIN_PRECIOS ? '-piezas' : '');
 
   let catActual = null;      // catálogo leído ahora del Excel
   let pres = null;           // presupuesto en pantalla (lleva sus propios precios en pres.precios)
@@ -13,9 +14,20 @@ const App = (() => {
   let fechaArchivo = null;   // fecha del presupuesto.json cuando se abrió o guardó
   let cambios = false;
   let modoCarpeta = false;   // true = trabajando con la carpeta del NAS
+  // Archivos de los planos (id del plano → File). En el .json solo va el nombre del archivo;
+  // la copia del plano se guarda en la carpeta del presupuesto.
+  const archivosPlanos = new Map();
 
   const $ = sel => document.querySelector(sel);
   const cat = () => pres.precios;
+  // Los datos de la empresa (logo, nombre, cuenta, pie) no son precios: salen siempre del catálogo actual
+  const DATOS_EMPRESA = ['logo', 'empresa', 'iban', 'textoPie'];
+  const catImprimir = () => {
+    if (!catActual) return cat();
+    const parametros = { ...cat().parametros };
+    DATOS_EMPRESA.forEach(k => { parametros[k] = catActual.parametros[k]; });
+    return { ...cat(), parametros };
+  };
   const hoy = () => new Date().toISOString().slice(0, 10);
   const euros = n => (n || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
   const dec = (n, d = 2) => (n || 0).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -23,6 +35,10 @@ const App = (() => {
   const opt = (valor, texto, sel) => `<option value="${esc(valor)}"${sel ? ' selected' : ''}>${esc(texto)}</option>`;
   const copia = o => JSON.parse(JSON.stringify(o));
   const nombreMueble = (mu, m) => mu.nombre || `Mueble ${m + 1}`;
+  // index_piezas.html: solo para introducir piezas, sin precios ni totales (lo que lleva la clase
+  // «precio» se oculta con CSS; aquí solo se quitan los precios de los textos de los desplegables)
+  const SIN_PRECIOS = !!window.SIN_PRECIOS;
+  const conPrecio = (texto, precio) => SIN_PRECIOS ? texto : `${texto} (${dec(precio)} €)`;
 
   // ------------------------------------------------------------------ modelo
   function acabadoPorDefecto(codigoFamilia) {
@@ -55,14 +71,15 @@ const App = (() => {
   function muebleNuevo(nombre = '', familia) {
     const s = seccionNueva(familia || cat().familias[0]?.codigo);
     s.piezas.push(piezaNueva(s.familia));
-    return { nombre, secciones: [s], extras: [] };
+    return { nombre, activo: true, secciones: [s], herrajes: [], extras: [] };
   }
 
   function presupuestoVacio() {
     pres = {
-      version: 5, numero: '', fecha: hoy(),
-      cliente: { nombre: '', contacto: '' }, referencia: '', descripcion: '',
+      version: 6, numero: '', fecha: hoy(),
+      cliente: { codigo: '', nombre: '', contacto: '' }, referencia: '', descripcion: '', planos: [],
       descuento: { activo: false, porcentaje: catActual.parametros.descuentoCarpinteroPct },
+      recargoActivo: true,
       muebles: [], precios: catActual
     };
     pres.muebles.push(muebleNuevo());
@@ -72,8 +89,15 @@ const App = (() => {
   // Completa campos que pueden faltar en presupuestos guardados
   function prepararCargado(p) {
     p.cliente = p.cliente || { nombre: '', contacto: '' };
+    p.cliente.codigo = p.cliente.codigo || '';
     p.descuento = p.descuento || { activo: false, porcentaje: catActual.parametros.descuentoCarpinteroPct };
     p.precios = p.precios || catActual;
+    if (p.recargoActivo === undefined) p.recargoActivo = true;
+    p.planos = p.planos || [];
+    // Antes de la versión 6 el pulido se cobraba por todo el perímetro: se marcan los 4 lados
+    // para que el presupuesto guardado no cambie de precio
+    const pulidoAntiguo = (p.version || 0) < 6;
+    p.version = 6;
     if (!p.muebles) {
       // Guardado antes de existir los apartados: todo va a un único mueble
       p.muebles = [{ nombre: '', secciones: p.secciones || [], extras: p.extras || [] }];
@@ -81,9 +105,12 @@ const App = (() => {
     }
     p.muebles.forEach(mu => {
       mu.extras = mu.extras || [];
+      mu.herrajes = mu.herrajes || [];
+      if (mu.activo === undefined) mu.activo = true;
       mu.secciones.forEach(s => {
         s.excluir = s.excluir || {};
-        s.piezas.forEach(pz => { pz.cantos = pz.cantos || [false, false, false, false]; });
+        const pulido = pulidoAntiguo && Catalogo.familia(p.precios, s.familia)?.canto === 'PULIDO';
+        s.piezas.forEach(pz => { pz.cantos = pulido ? [true, true, true, true] : pz.cantos || [false, false, false, false]; });
       });
     });
     return p;
@@ -97,6 +124,8 @@ const App = (() => {
       if (el.type === 'checkbox') el.checked = !!v; else el.value = v ?? '';
     });
     Mueble.rellenarMateriales(cat());
+    pintarNombresPieza();
+    pintarPlanos();
     pintarMuebles();
     avisoPrecios();
     recalcular();
@@ -105,7 +134,9 @@ const App = (() => {
   function htmlSeccion(sec, m, i) {
     const c = cat();
     const fam = Catalogo.familia(c, sec.familia);
-    const conCanto = fam?.canto === 'CANTO';
+    // En los materiales pulidos (MDF) los lados marcados son los que se pulen
+    const conCanto = fam?.canto === 'CANTO' || fam?.canto === 'PULIDO';
+    const textoCanto = fam?.canto === 'PULIDO' ? 'Pulido' : 'Canto';
     const conAcabado = fam?.acabadoSuperficial;
     const tabs = Catalogo.tablerosDe(c, sec.familia);
     const tabActual = tabs.some(t => t.acabado === sec.acabado && t.grosor === sec.grosor);
@@ -113,17 +144,17 @@ const App = (() => {
 
     const filas = sec.piezas.map((pz, j) => `
       <tr data-p="${j}">
-        <td><input type="text" data-bind="pz.nombre" value="${esc(pz.nombre)}" placeholder="Pieza ${j + 1}"></td>
+        <td><input type="text" data-bind="pz.nombre" value="${esc(pz.nombre)}" placeholder="Pieza ${j + 1}" list="nombres-pieza"></td>
         <td><input type="number" class="num" data-bind="pz.largo" value="${esc(pz.largo)}" min="0" placeholder="mm"></td>
         <td><input type="number" class="num" data-bind="pz.ancho" value="${esc(pz.ancho)}" min="0" placeholder="mm"></td>
         <td><input type="number" class="num corto" data-bind="pz.cantidad" value="${esc(pz.cantidad)}" min="1"></td>
         ${conCanto ? `<td class="cantos">${['L1', 'L2', 'A1', 'A2'].map((t, k) =>
-          `<label title="Canto en ${k < 2 ? 'largo' : 'ancho'} ${k % 2 + 1}"><input type="checkbox" data-bind="pz.canto" data-k="${k}"${pz.cantos[k] ? ' checked' : ''}>${t}</label>`).join('')}
+          `<label title="${textoCanto} en ${k < 2 ? 'largo' : 'ancho'} ${k % 2 + 1}"><input type="checkbox" data-bind="pz.canto" data-k="${k}"${pz.cantos[k] ? ' checked' : ''}>${t}</label>`).join('')}
           <button class="mini" data-accion="cantos-todos" title="Marcar / desmarcar los 4 lados">4</button></td>` : ''}
         ${conAcabado ? `<td class="acabado-celda"><select data-bind="pz.acabado">${acabados.map(a => opt(a, a, a === pz.acabado)).join('')}</select>
           <label title="Acabado por las dos caras"><input type="checkbox" data-bind="pz.dosCaras"${pz.dosCaras ? ' checked' : ''}>2 caras</label></td>` : ''}
         <td class="num salida" data-out="m2"></td>
-        <td class="num salida" data-out="coste"></td>
+        <td class="num salida precio" data-out="coste"></td>
         <td class="acciones">
           <button class="mini" data-accion="duplicar-pieza" title="Duplicar fila">⧉</button>
           <button class="mini peligro" data-accion="borrar-pieza" title="Borrar fila">✕</button>
@@ -152,14 +183,14 @@ const App = (() => {
       <table class="tabla tabla-piezas">
         <thead><tr>
           <th>Pieza</th><th class="num">Largo</th><th class="num">Ancho</th><th class="num">Cant.</th>
-          ${conCanto ? '<th>Cantos</th>' : ''}${conAcabado ? '<th>Acabado</th>' : ''}
-          <th class="num">m²</th><th class="num">€</th><th></th>
+          ${conCanto ? `<th>${textoCanto === 'Pulido' ? 'Pulido' : 'Cantos'}</th>` : ''}${conAcabado ? '<th>Acabado</th>' : ''}
+          <th class="num">m²</th><th class="num precio">€</th><th></th>
         </tr></thead>
         <tbody>${filas}</tbody>
       </table>
       <div class="seccion-pie">
         <button class="anadir" data-accion="anadir-pieza">➕ Añadir pieza <small>(o Intro en la última fila)</small></button>
-        <span class="seccion-totales" data-out="seccion"></span>
+        <span class="seccion-totales precio" data-out="seccion"></span>
       </div>
     </div>`;
   }
@@ -170,24 +201,76 @@ const App = (() => {
       <tr data-e="${e}">
         <td><select data-bind="ex.producto">
           ${opt('', 'Otro (escribir)', !ex.producto)}
-          ${c.extras.map(x => opt(x.nombre, `${x.nombre} (${dec(x.precio)} €)`, x.nombre === ex.producto)).join('')}
+          ${c.extras.map(x => opt(x.nombre, conPrecio(x.nombre, x.precio), x.nombre === ex.producto)).join('')}
         </select></td>
         <td><input type="text" data-bind="ex.nombre" value="${esc(ex.nombre)}" placeholder="Descripción"></td>
-        <td><input type="number" class="num" data-bind="ex.precio" value="${esc(ex.precio)}" step="0.01" min="0"></td>
+        <td class="precio"><input type="number" class="num" data-bind="ex.precio" value="${esc(ex.precio)}" step="0.01" min="0"></td>
         <td><input type="number" class="num corto" data-bind="ex.cantidad" value="${esc(ex.cantidad)}" min="0"></td>
-        <td class="num salida" data-out="extra"></td>
+        <td class="num salida precio" data-out="extra"></td>
         <td class="acciones"><button class="mini peligro" data-accion="borrar-extra" title="Borrar">✕</button></td>
       </tr>`).join('');
+  }
+
+  // Herrajes: primero el tipo (bisagras, cajones…) y después el modelo de ese tipo
+  function htmlHerrajes(mu) {
+    const c = cat();
+    const categorias = Catalogo.categoriasHerraje(c);
+    return mu.herrajes.map((hj, e) => {
+      const cats = !hj.categoria || categorias.includes(hj.categoria) ? categorias : [...categorias, hj.categoria];
+      const modelos = Catalogo.herrajes(c).filter(x => x.categoria === hj.categoria);
+      return `
+      <tr data-h="${e}">
+        <td><select data-bind="hj.categoria">${cats.map(k => opt(k, k, k === hj.categoria)).join('')}${opt('', 'Otro', !hj.categoria)}</select></td>
+        <td><select data-bind="hj.producto">
+          ${modelos.map(x => opt(x.nombre, conPrecio(x.nombre, x.precio), x.nombre === hj.producto)).join('')}
+          ${opt('', 'Otro (escribir)', !hj.producto)}
+        </select></td>
+        <td><input type="text" data-bind="hj.nombre" value="${esc(hj.nombre)}" placeholder="Descripción"></td>
+        <td class="precio"><input type="number" class="num" data-bind="hj.precio" value="${esc(hj.precio)}" step="0.01" min="0"></td>
+        <td><input type="number" class="num corto" data-bind="hj.cantidad" value="${esc(hj.cantidad)}" min="0"></td>
+        <td class="num salida precio" data-out="herraje"></td>
+        <td class="acciones"><button class="mini peligro" data-accion="borrar-herraje" title="Borrar">✕</button></td>
+      </tr>`;
+    }).join('');
+  }
+
+  // Desplegable del nombre de pieza: los habituales del catálogo y los ya usados en este presupuesto.
+  // Los nombres de pieza no son precios: salen siempre del catálogo actual.
+  function pintarNombresPieza() {
+    const nombres = Catalogo.piezas(catActual).map(p => p.nombre);
+    pres.muebles.forEach(mu => mu.secciones.forEach(s => s.piezas.forEach(pz => {
+      const n = String(pz.nombre || '').trim();
+      if (n && !nombres.some(x => Catalogo.normalizar(x) === Catalogo.normalizar(n))) nombres.push(n);
+    })));
+    $('#nombres-pieza').innerHTML = nombres.map(n => `<option value="${esc(n)}"></option>`).join('');
+  }
+
+  // Cantos habituales de una pieza por su nombre, si su material los lleva
+  function cantosHabituales(familia, nombre) {
+    const fam = Catalogo.familia(cat(), familia);
+    if (!fam || fam.canto === 'NO') return null;
+    return Catalogo.cantosPieza(catActual, nombre);
+  }
+
+  function pintarPlanos() {
+    $('#planos-lista').innerHTML = pres.planos.map((pl, k) => `
+      <div class="plano" data-pl="${k}">
+        <span class="plano-nombre">${pl.tipo === 'application/pdf' ? '📄' : '🖼️'} ${esc(pl.nombre)}</span>
+        <button class="mini" data-accion="ver-plano" title="Abrir el plano">Ver</button>
+        <button class="mini peligro" data-accion="quitar-plano" title="Quitar el plano del presupuesto">✕</button>
+      </div>`).join('');
   }
 
   function pintarMuebles() {
     const n = pres.muebles.length;
     $('#muebles').innerHTML = pres.muebles.map((mu, m) => `
-      <section class="mueble" data-m="${m}">
+      <section class="mueble${mu.activo === false ? ' inactivo' : ''}" data-m="${m}">
         <div class="mueble-cabecera">
+          <label class="interruptor" title="Si lo desactivas, este mueble no sale en el presupuesto ni suma en el total">
+            <input type="checkbox" data-bind="mu.activo"${mu.activo === false ? '' : ' checked'}><span>Incluir</span></label>
           <input type="text" class="mueble-nombre" data-bind="mu.nombre" value="${esc(mu.nombre)}"
             placeholder="Mueble ${m + 1} (ej: Armario dormitorio) — sale en el PDF del cliente">
-          <span class="mueble-precio" data-out="mueble"></span>
+          <span class="mueble-precio precio" data-out="mueble"></span>
           <div class="seccion-botones">
             <button class="mini" data-accion="subir-mueble" title="Subir"${m === 0 ? ' disabled' : ''}>↑</button>
             <button class="mini" data-accion="bajar-mueble" title="Bajar"${m === n - 1 ? ' disabled' : ''}>↓</button>
@@ -198,9 +281,16 @@ const App = (() => {
         ${mu.secciones.map((sec, i) => htmlSeccion(sec, m, i)).join('')}
         <button class="anadir" data-accion="anadir-seccion">➕ Añadir material a este mueble</button>
         <div class="mueble-extras">
-          <h3>Extras y herrajes</h3>
+          <h3>Herrajes <small>(bisagras, cajones…)</small></h3>
+          ${mu.herrajes.length ? `<table class="tabla tabla-extras tabla-herrajes">
+            <thead><tr><th>Tipo</th><th>Modelo</th><th>Descripción</th><th class="num precio">Precio €</th><th class="num">Cant.</th><th class="num precio">Total</th><th></th></tr></thead>
+            <tbody>${htmlHerrajes(mu)}</tbody></table>` : ''}
+          <button class="anadir" data-accion="anadir-herraje">➕ Añadir herraje</button>
+        </div>
+        <div class="mueble-extras">
+          <h3>Extras</h3>
           ${mu.extras.length ? `<table class="tabla tabla-extras">
-            <thead><tr><th>Producto</th><th>Descripción</th><th class="num">Precio €</th><th class="num">Cant.</th><th class="num">Total</th><th></th></tr></thead>
+            <thead><tr><th>Producto</th><th>Descripción</th><th class="num precio">Precio €</th><th class="num">Cant.</th><th class="num precio">Total</th><th></th></tr></thead>
             <tbody>${htmlExtras(mu)}</tbody></table>` : ''}
           <button class="anadir" data-accion="anadir-extra">➕ Añadir extra</button>
         </div>
@@ -218,7 +308,7 @@ const App = (() => {
     pres.muebles.forEach((mu, m) => {
       const rm = res.muebles[m];
       if (pres.muebles.length > 1) {
-        html += `<tr class="fila-mueble"><td colspan="${Calculo.CONCEPTOS.length + 2}">${esc(nombreMueble(mu, m))}</td></tr>`;
+        html += `<tr class="fila-mueble"><td colspan="${Calculo.CONCEPTOS.length + 2}">${esc(nombreMueble(mu, m))}${mu.activo === false ? ' — no incluido' : ''}</td></tr>`;
       }
       mu.secciones.forEach((sec, i) => {
         const r = rm.secciones[i];
@@ -227,8 +317,13 @@ const App = (() => {
           ${Calculo.CONCEPTOS.map(([k]) => celda(`s|${m}|${i}|${k}`, r.costes[k], sec.excluir[k])).join('')}
           <td class="num"><strong>${euros(r.subtotal)}</strong></td></tr>`;
       });
+      mu.herrajes.forEach((hj, e) => {
+        html += `<tr><td>Herraje: ${esc(hj.nombre || hj.producto || hj.categoria || 'Herraje')}</td>
+          <td colspan="${Calculo.CONCEPTOS.length - 1}"></td>${celda(`h|${m}|${e}`, rm.herrajes[e], hj.excluir)}
+          <td class="num"><strong>${euros(hj.excluir ? 0 : rm.herrajes[e])}</strong></td></tr>`;
+      });
       mu.extras.forEach((ex, e) => {
-        html += `<tr><td>Extra: ${esc(ex.nombre || ex.producto || 'Extra')}</td>
+        html += `<tr><td>Extra:${esc(ex.nombre || ex.producto || 'Extra')}</td>
           <td colspan="${Calculo.CONCEPTOS.length - 1}"></td>${celda(`e|${m}|${e}`, rm.extras[e], ex.excluir)}
           <td class="num"><strong>${euros(ex.excluir ? 0 : rm.extras[e])}</strong></td></tr>`;
       });
@@ -242,19 +337,20 @@ const App = (() => {
     const fila = (t, v, cls = '') => `<div class="fila ${cls}"><span>${t}</span><span>${v}</span></div>`;
     let html = '';
     if (pres.muebles.length > 1) {
-      html += '<div class="resumen-muebles">' + pres.muebles.map((mu, m) =>
-        fila(esc(nombreMueble(mu, m)), euros(res.muebles[m].precio))).join('') + '</div>';
+      html += '<div class="resumen-muebles">' + pres.muebles.map((mu, m) => mu.activo === false
+        ? fila(`<s>${esc(nombreMueble(mu, m))}</s>`, 'no incluido', 'apagado')
+        : fila(esc(nombreMueble(mu, m)), euros(res.muebles[m].precio))).join('') + '</div>';
     }
+    // El recargo por escala va después del acabado: se aplica sobre materiales + acabado
     html += fila('Materiales, mecanizado y extras', euros(res.base));
-    html += fila(`+ Recargo por escala (${dec(res.recargoBasePct, 0)} %)`, euros(res.recargoBase));
+    if (res.acabado > 0) html += fila('+ Acabado superficial y lijado (opcional)', euros(res.acabado));
+    if (pres.recargoActivo !== false) html += fila(`+ Recargo por escala (${dec(res.recargoPct, 0)} %${res.acabado > 0 ? ' s/ materiales y acabado' : ''})`, euros(res.recargo));
     if (pres.descuento.activo) html += fila(`− Descuento carpintero (${dec(res.descuentoPct, 1)} % s/ tablero y canto)`, '−' + euros(res.descuento), 'verde');
-    html += fila('Subtotal', euros(res.subtotal), 'negrita');
-    if (res.acabadoTotal > 0) html += fila(`+ Acabado superficial (opcional, recargo ${dec(res.recargoAcabadoPct, 0)} %)`, euros(res.acabadoTotal));
-    html += fila('TOTAL (sin IVA)', euros(res.total), 'total');
-    if (p.mostrarIva) {
-      html += fila(`IVA (${dec(p.ivaPct, 0)} %)`, euros(res.iva));
-      html += fila('Total con IVA', euros(res.totalConIva), 'negrita');
-    }
+    html += fila('Base imponible', euros(res.total), 'negrita separador');
+    if (res.acabadoTotal > 0) html += fila('Sin el acabado opcional', euros(res.subtotal), 'pequeno');
+    html += fila(`IVA (${dec(p.ivaPct, 0)} %)`, euros(res.iva));
+    html += fila('TOTAL (IVA incluido)', euros(res.totalConIva), 'total');
+    html += fila(`Pago inicial (${dec(res.pagoInicialPct, 0)} %)`, euros(res.pagoInicial), 'pequeno');
     const avisos = [];
     res.muebles.forEach((rm, m) => rm.secciones.forEach((r, i) => {
       if (r.aviso) avisos.push(`${nombreMueble(pres.muebles[m], m)}, material ${i + 1}: ${r.aviso}`);
@@ -288,6 +384,9 @@ const App = (() => {
       });
       mEl.querySelectorAll('tr[data-e]').forEach(tr => {
         tr.querySelector('[data-out=extra]').textContent = euros(rm.extras[+tr.dataset.e]);
+      });
+      mEl.querySelectorAll('tr[data-h]').forEach(tr => {
+        tr.querySelector('[data-out=herraje]').textContent = euros(rm.herrajes[+tr.dataset.h]);
       });
     });
     pintarDesglose();
@@ -334,23 +433,32 @@ const App = (() => {
     return c ? +c.dataset[d] : null;
   };
 
-  // Mueble, sección, pieza y extra a los que pertenece un elemento de la pantalla
+  // Mueble, sección, pieza, extra y herraje a los que pertenece un elemento de la pantalla
   function lugar(el) {
-    const m = indice(el, 'm'), s = indice(el, 's'), p = indice(el, 'p'), e = indice(el, 'e');
+    const m = indice(el, 'm'), s = indice(el, 's'), p = indice(el, 'p'), e = indice(el, 'e'), h = indice(el, 'h');
     const mu = pres.muebles[m];
     const sec = mu?.secciones[s];
-    return { m, s, p, e, mu, sec, pz: sec?.piezas[p], ex: mu?.extras[e] };
+    return { m, s, p, e, h, mu, sec, pz: sec?.piezas[p], ex: mu?.extras[e], hj: mu?.herrajes[h] };
   }
 
-  function repintar() { pintarMuebles(); recalcular(); }
+  function repintar() { pintarNombresPieza(); pintarMuebles(); recalcular(); }
 
   function alCambiarCampo(el) {
     const b = el.dataset.bind;
     const v = el.type === 'checkbox' ? el.checked : el.value;
-    const { mu, sec, pz, ex } = lugar(el);
+    const { mu, sec, pz, ex, hj } = lugar(el);
     let estructura = false;
 
     if (b === 'pz.canto') pz.cantos[+el.dataset.k] = v;
+    else if (b === 'pz.nombre') {
+      pz.nombre = v;
+      // Nombre habitual elegido del desplegable: se ponen sus cantos
+      const cantos = cantosHabituales(sec.familia, v);
+      if (cantos) {
+        pz.cantos = cantos;
+        el.closest('tr').querySelectorAll('[data-bind="pz.canto"]').forEach(ch => { ch.checked = cantos[+ch.dataset.k]; });
+      }
+    }
     else if (b.startsWith('pz.')) pz[b.slice(3)] = v;
     else if (b === 'sec.familia') { cambiarFamilia(sec, v); estructura = true; }
     else if (b === 'sec.tablero') {
@@ -366,7 +474,16 @@ const App = (() => {
       estructura = true;
     }
     else if (b.startsWith('ex.')) ex[b.slice(3)] = v;
+    else if (b === 'hj.categoria' || b === 'hj.producto') {
+      // Al cambiar el tipo se propone su primer modelo
+      const categoria = b === 'hj.categoria' ? v : hj.categoria;
+      const x = Catalogo.herrajes(cat()).find(x => x.categoria === categoria && (b === 'hj.categoria' || x.nombre === v));
+      Object.assign(hj, { categoria, producto: x ? x.nombre : '', nombre: x ? x.nombre : '', precio: x ? x.precio : '' });
+      estructura = true;
+    }
+    else if (b.startsWith('hj.')) hj[b.slice(3)] = v;
     else if (b === 'mu.nombre') { mu.nombre = v; Mueble.rellenarDestinos(pres.muebles.map(nombreMueble)); }
+    else if (b === 'mu.activo') { mu.activo = v; el.closest('.mueble').classList.toggle('inactivo', !v); }
     else {
       const ruta = b.split('.');
       const ultimo = ruta.pop();
@@ -383,7 +500,7 @@ const App = (() => {
     const validos = [SIN, ...Catalogo.acabadosDe(cat(), codigo).map(a => a.nombre)];
     Object.assign(sec, { familia: nueva.familia, acabado: nueva.acabado, grosor: nueva.grosor, medida: nueva.medida });
     sec.piezas.forEach(pz => {
-      if (fam.canto !== 'CANTO') pz.cantos = [false, false, false, false];
+      if (fam.canto === 'NO') pz.cantos = [false, false, false, false];
       if (!fam.acabadoSuperficial) { pz.acabado = SIN; pz.dosCaras = false; }
       else if (!validos.includes(pz.acabado)) pz.acabado = acabadoPorDefecto(codigo);
     });
@@ -400,8 +517,8 @@ const App = (() => {
     },
     'borrar-mueble'(el) {
       const { m, mu } = lugar(el);
-      const conPiezas = mu.secciones.some(s => s.piezas.some(p => p.largo || p.ancho)) || mu.extras.length;
-      if (conPiezas && !confirm(`¿Eliminar «${nombreMueble(mu, m)}» con todas sus piezas y extras?`)) return;
+      const conPiezas = mu.secciones.some(s => s.piezas.some(p => p.largo || p.ancho)) || mu.extras.length || mu.herrajes.length;
+      if (conPiezas && !confirm(`¿Eliminar «${nombreMueble(mu, m)}» con todas sus piezas, herrajes y extras?`)) return;
       pres.muebles.splice(m, 1);
       if (!pres.muebles.length) pres.muebles.push(muebleNuevo());
       marcarCambios(); repintar();
@@ -466,13 +583,52 @@ const App = (() => {
       mu.extras.splice(e, 1);
       marcarCambios(); repintar();
     },
+    'anadir-herraje'(el) {
+      const { m, mu } = lugar(el);
+      // Se propone el mismo tipo que el último herraje, o el primero del catálogo
+      const ultimo = mu.herrajes[mu.herrajes.length - 1];
+      const x = Catalogo.herrajes(cat()).find(x => !ultimo || x.categoria === ultimo.categoria) || Catalogo.herrajes(cat())[0];
+      mu.herrajes.push({ categoria: x?.categoria || '', producto: x?.nombre || '', nombre: x?.nombre || '', precio: x?.precio ?? '', cantidad: 1 });
+      marcarCambios(); repintar();
+      document.querySelector(`#muebles section[data-m="${m}"] tr[data-h="${mu.herrajes.length - 1}"] select`)?.focus();
+    },
+    'borrar-herraje'(el) {
+      const { h, mu } = lugar(el);
+      mu.herrajes.splice(h, 1);
+      marcarCambios(); repintar();
+    },
+    'adjuntar-plano'() { $('#archivo-plano').click(); },
+    async 'ver-plano'(el) {
+      const pl = pres.planos[indice(el, 'pl')];
+      const f = await archivoPlano(pl);
+      if (!f) return alert(`No se encuentra el archivo del plano «${pl.nombre}».`);
+      window.open(URL.createObjectURL(new Blob([f], { type: pl.tipo })), '_blank');
+    },
+    'quitar-plano'(el) {
+      const k = indice(el, 'pl');
+      if (!confirm(`¿Quitar el plano «${pres.planos[k].nombre}» del presupuesto?`)) return;
+      pres.planos.splice(k, 1);
+      marcarCambios(); pintarPlanos(); pintarCabecera();
+    },
     'actualizar-precios'() {
       if (!confirm('Se recalculará el presupuesto con los precios actuales del catálogo. ¿Continuar?')) return;
       pres.precios = catActual;
-      pres.muebles.forEach(mu => mu.extras.forEach(ex => {
-        const x = catActual.extras.find(x => x.nombre === ex.producto);
-        if (x) ex.precio = x.precio;
-      }));
+      pres.muebles.forEach(mu => {
+        // Los extras que ahora están en la pestaña Herrajes del catálogo pasan a herrajes
+        mu.extras = mu.extras.filter(ex => {
+          const h = ex.producto && Catalogo.herraje(catActual, ex.producto);
+          if (h) mu.herrajes.push({ categoria: h.categoria, producto: h.nombre, nombre: ex.nombre || h.nombre, precio: ex.precio, cantidad: ex.cantidad, excluir: ex.excluir });
+          return !h;
+        });
+        mu.extras.forEach(ex => {
+          const x = catActual.extras.find(x => x.nombre === ex.producto);
+          if (x) ex.precio = x.precio;
+        });
+        mu.herrajes.forEach(hj => {
+          const x = Catalogo.herrajes(catActual).find(x => x.nombre === hj.producto);
+          if (x) hj.precio = x.precio;
+        });
+      });
       marcarCambios(); pintarTodo();
       notificar('Precios actualizados. Recuerda guardar.');
     },
@@ -481,18 +637,21 @@ const App = (() => {
       presupuestoVacio(); fechaArchivo = null; cambios = false; borrarBorrador();
       pintarTodo();
     },
-    duplicar() {
+    async duplicar() {
+      // Los planos se leen antes de copiar, para que la copia los guarde en su carpeta
+      await Promise.all(pres.planos.map(archivoPlano));
       pres = copia(pres);
+      pres.planos.forEach(pl => { pl.archivo = ''; });
       Object.assign(pres, { numero: '', fecha: hoy(), precios: catActual });
-      delete pres.resumen;
+      delete pres.resumen; delete pres.ubicacion;
       fechaArchivo = null;
       marcarCambios(); pintarTodo();
       notificar('Copia creada con los precios actuales. Al guardar tendrá un número nuevo.');
     },
-    guardar,
+    guardar: () => guardar(),
     abrir,
-    async 'pdf-cliente'() { if (await guardarAntesDeImprimir()) Imprimir.cliente(pres, res, cat()); },
-    async 'pdf-completo'() { if (await guardarAntesDeImprimir()) Imprimir.completo(pres, res, cat()); },
+    'pdf-cliente': pdfCliente,
+    async 'pdf-completo'() { if (await guardarAntesDeImprimir()) Imprimir.completo(pres, res, catImprimir()); },
     async 'recargar-catalogo'() {
       cerrarMenu();
       try {
@@ -508,6 +667,11 @@ const App = (() => {
     },
     'importar-plantilla'() { cerrarMenu(); $('#archivo-plantilla').click(); },
     'importar-csv'() { cerrarMenu(); $('#archivo-csv').click(); },
+    'importar-json'() {
+      cerrarMenu();
+      if (cambios && !confirm('Hay cambios sin guardar. ¿Importar igualmente?')) return;
+      $('#archivo-json').click();
+    },
     async 'cambiar-carpeta'() {
       cerrarMenu();
       if (!Almacen.soportado) return alert('Este navegador no permite elegir carpetas. Usa Chrome o Edge.');
@@ -517,7 +681,29 @@ const App = (() => {
   };
 
   const cerrarMenu = () => { $('.menu').open = false; };
-  const hayPiezas = () => pres.muebles.some(mu => mu.extras.length || mu.secciones.some(s => s.piezas.some(p => p.largo || p.ancho)));
+  const hayPiezas = () => pres.muebles.some(mu => mu.extras.length || mu.herrajes.length || mu.secciones.some(s => s.piezas.some(p => p.largo || p.ancho)));
+
+  // Archivo de un plano: el adjuntado en esta sesión o la copia guardada junto al presupuesto
+  async function archivoPlano(pl) {
+    if (!archivosPlanos.has(pl.id) && modoCarpeta) {
+      const f = await Almacen.leerPlano(pres, pl);
+      if (f) archivosPlanos.set(pl.id, f);
+    }
+    return archivosPlanos.get(pl.id) || null;
+  }
+
+  function adjuntarPlanos(archivos) {
+    const malos = [];
+    archivos.forEach(f => {
+      const tipo = f.type || (/\.pdf$/i.test(f.name) ? 'application/pdf' : '');
+      if (tipo !== 'application/pdf' && !tipo.startsWith('image/')) { malos.push(f.name); return; }
+      const pl = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), nombre: f.name, tipo, archivo: '' };
+      archivosPlanos.set(pl.id, f);
+      pres.planos.push(pl);
+    });
+    if (malos.length) alert(`Solo se pueden adjuntar PDF o imágenes. No se han añadido:\n${malos.join('\n')}`);
+    marcarCambios(); pintarPlanos(); pintarCabecera();
+  }
 
   function moverMueble(m, d) {
     const destino = m + d;
@@ -546,7 +732,7 @@ const App = (() => {
       // Si el único mueble está vacío se reaprovecha
       const vacio = pres.muebles.length === 1 && !hayPiezas() && !pres.muebles[0].nombre;
       if (vacio) pres.muebles[0].nombre = nombre;
-      else pres.muebles.push({ nombre, secciones: [], extras: [] });
+      else pres.muebles.push({ nombre, secciones: [], herrajes: [], extras: [] });
       m = vacio ? 0 : pres.muebles.length - 1;
     }
     const mu = pres.muebles[m];
@@ -559,7 +745,10 @@ const App = (() => {
         mu.secciones.push(sec);
       }
       sec.piezas = sec.piezas.filter(p => p.largo || p.ancho);
-      sec.piezas.push(piezaNueva(sec.familia, { nombre: pz.nombre, largo: Math.round(pz.largo), ancho: Math.round(pz.ancho), cantidad: pz.cantidad }));
+      sec.piezas.push(piezaNueva(sec.familia, {
+        nombre: pz.nombre, largo: Math.round(pz.largo), ancho: Math.round(pz.ancho), cantidad: pz.cantidad,
+        cantos: cantosHabituales(sec.familia, pz.nombre) || [false, false, false, false]
+      }));
     });
     marcarCambios(); repintar();
     notificar(`${lista.reduce((n, p) => n + p.cantidad, 0)} piezas añadidas a «${nombreMueble(mu, m)}».`);
@@ -567,23 +756,37 @@ const App = (() => {
   }
 
   // ------------------------------------------------------- guardar / abrir
-  async function guardar() {
+  // `nuevaVersion`: se guarda como …_V2, …_V3 dejando intactos el .json y el .pdf anteriores
+  async function guardar(nuevaVersion = false) {
     pres.resumen = { total: Math.round(res.total * 100) / 100 };
     if (!modoCarpeta) {
-      descargar(`${pres.numero || 'presupuesto'} ${pres.cliente.nombre || ''}`.trim() + '.json',
-        JSON.stringify(pres, null, 2), 'application/json');
+      const base = Almacen.nombreBase(pres);
+      descargar(base + '.json', JSON.stringify(pres, null, 2), 'application/json');
+      pres.planos.forEach((pl, i) => {
+        const f = archivosPlanos.get(pl.id);
+        if (f) descargar(Almacen.nombrePlano(base, pl, i), f, pl.tipo);
+      });
       cambios = false; borrarBorrador(); pintarCabecera();
       return true;
     }
     try {
-      let r = await Almacen.guardar(pres, fechaArchivo);
+      // Hace falta el archivo de cada plano para guardar su copia junto al presupuesto
+      const archivos = await Promise.all(pres.planos.map(archivoPlano));
+      const perdidos = pres.planos.filter((pl, i) => !archivos[i]);
+      if (perdidos.length) {
+        alert(`No se encuentra el archivo de: ${perdidos.map(pl => pl.nombre).join(', ')}.\n\nSe quita del presupuesto; vuelve a adjuntarlo si hace falta.`);
+        pres.planos = pres.planos.filter((pl, i) => archivos[i]);
+        pintarPlanos();
+      }
+      const planos = archivos.filter(Boolean);
+      let r = await Almacen.guardar(pres, fechaArchivo, false, planos, nuevaVersion);
       if (r.conflicto) {
         if (!confirm('Otro ordenador ha modificado este presupuesto desde que lo abriste.\n\n¿Sobrescribirlo con tu versión?')) return false;
-        r = await Almacen.guardar(pres, fechaArchivo, true);
+        r = await Almacen.guardar(pres, fechaArchivo, true, planos, nuevaVersion);
       }
       fechaArchivo = r.fecha;
       cambios = false; borrarBorrador(); pintarCabecera();
-      notificar(`Guardado en Presupuestos/${pres.numero.slice(0, 4)}/${r.carpeta}`);
+      notificar(`${nuevaVersion ? 'Versión nueva guardada' : 'Guardado'} en ${r.ruta}.json`);
       return true;
     } catch (e) {
       alert('No se ha podido guardar: ' + e.message + '\n\n¿Está conectado el NAS?');
@@ -591,8 +794,53 @@ const App = (() => {
     }
   }
 
+  // Genera el PDF del cliente y lo guarda junto al .json, con el mismo nombre. Si ese presupuesto
+  // ya tenía PDF, se guarda antes como versión nueva (…_V2.json) y el PDF sale con ese nombre.
+  async function pdfCliente() {
+    const nuevaVersion = modoCarpeta && await Almacen.tienePdf(pres);
+    if (!(await (nuevaVersion ? guardar(true) : guardarAntesDeImprimir()))) return;
+    const c = catImprimir();
+    let blob;
+    try {
+      notificar('Generando PDF…');
+      if (modoCarpeta && c.parametros.logo) {
+        c.parametros = { ...c.parametros, logo: await Almacen.leerComoDataUrl(c.parametros.logo) };
+      }
+      blob = await Imprimir.pdfCliente(pres, res, c);
+    } catch (e) {
+      alert('No se ha podido generar el PDF: ' + e.message + '\n\nSe abrirá el diálogo de impresión.');
+      return Imprimir.cliente(pres, res, catImprimir());
+    }
+    // Los planos van al final del PDF
+    if (pres.planos.length) {
+      try {
+        const planos = await Promise.all(pres.planos.map(async pl => ({ nombre: pl.nombre, tipo: pl.tipo, archivo: await archivoPlano(pl) })));
+        const r = await Imprimir.anadirPlanos(blob, planos.filter(p => p.archivo));
+        blob = r.blob;
+        const fallos = [...planos.filter(p => !p.archivo).map(p => p.nombre), ...r.fallos];
+        if (fallos.length) alert(`No se han podido añadir al PDF estos planos:\n${fallos.join('\n')}`);
+      } catch (e) {
+        alert('No se han podido añadir los planos al PDF: ' + e.message);
+      }
+    }
+    const url = URL.createObjectURL(blob);
+    if (!modoCarpeta) {
+      const a = document.createElement('a');
+      a.href = url; a.download = Imprimir.nombreArchivo(pres) + '.pdf'; a.click();
+      return;
+    }
+    try {
+      const ruta = await Almacen.guardarPdf(pres, blob);
+      notificar(`PDF guardado en ${ruta}${nuevaVersion ? ' (versión nueva, con su .json)' : ''}`, { texto: 'Abrir PDF', url });
+    } catch (e) {
+      alert('No se ha podido guardar el PDF: ' + e.message + '\n\n¿Está conectado el NAS?');
+    }
+  }
+
+  // Antes de sacar el PDF se guarda el presupuesto si hace falta, así el .json y el .pdf
+  // tienen el mismo nombre
   async function guardarAntesDeImprimir() {
-    if (modoCarpeta && (cambios || !pres.numero)) return guardar();
+    if (cambios || (modoCarpeta && !pres.numero)) return guardar();
     return true;
   }
 
@@ -608,12 +856,12 @@ const App = (() => {
       const items = await Almacen.listar();
       const pintar = filtro => {
         const f = Catalogo.normalizar(filtro);
-        const vis = items.filter(it => !f || Catalogo.normalizar(`${it.numero} ${it.cliente} ${it.referencia}`).includes(f));
-        lista.innerHTML = vis.length ? `<table class="tabla"><thead><tr><th>Número</th><th>Cliente</th><th>Referencia</th><th>Fecha</th><th class="num">Total</th></tr></thead><tbody>
+        const vis = items.filter(it => !f || Catalogo.normalizar(`${it.numero} ${it.codigo} ${it.cliente} ${it.referencia} ${it.ruta.join(' ')}`).includes(f));
+        lista.innerHTML = vis.length ? `<table class="tabla"><thead><tr><th>Número</th><th>Código</th><th>Cliente</th><th>Referencia</th><th>Fecha</th><th class="num precio">Total</th></tr></thead><tbody>
           ${vis.map(it => `<tr class="clicable" data-k="${items.indexOf(it)}">
-            <td>${esc(it.numero)}</td><td>${esc(it.cliente)}</td><td>${esc(it.referencia)}</td>
+            <td>${esc(it.numero)}</td><td>${esc(it.codigo || it.ruta[0] || '')}</td><td>${esc(it.cliente)}</td><td>${esc(it.referencia)}</td>
             <td>${it.fecha ? new Date(it.fecha).toLocaleDateString('es-ES') : ''}</td>
-            <td class="num">${it.total != null ? euros(it.total) : ''}</td></tr>`).join('')}</tbody></table>`
+            <td class="num precio">${it.total != null ? euros(it.total) : ''}</td></tr>`).join('')}</tbody></table>`
           : '<p>No hay presupuestos guardados' + (f ? ' que coincidan' : ' todavía') + '.</p>';
       };
       pintar('');
@@ -624,7 +872,7 @@ const App = (() => {
         if (!tr) return;
         const it = items[+tr.dataset.k];
         try {
-          const r = await Almacen.abrir(it.anyo, it.carpeta);
+          const r = await Almacen.abrir(it);
           pres = prepararCargado(r.pres); fechaArchivo = r.fecha; cambios = false; borrarBorrador();
           dialogo.close(); pintarTodo();
         } catch (err) { alert('No se ha podido abrir: ' + err.message); }
@@ -653,6 +901,7 @@ const App = (() => {
     if (r.descuento !== null) pres.descuento.activo = r.descuento;
     pres.muebles = r.muebles.map(mu => ({
       nombre: mu.nombre,
+      herrajes: mu.herrajes,
       extras: mu.extras,
       secciones: mu.secciones.map(s => {
         const sec = seccionNueva(s.familia, s.acabado, s.grosor);
@@ -706,6 +955,8 @@ const App = (() => {
           acabado: f.acabado_superficial || SIN, dosCaras: f.dos_caras === '1'
         }));
       } else if (tipo === 'EXTRA') {
+        const h = Catalogo.herraje(cat(), f.nombre_extra);
+        if (h) return mu.herrajes.push({ categoria: h.categoria, producto: h.nombre, nombre: h.nombre, precio: f.precio_unitario || h.precio, cantidad: f.cantidad_extra || 1 });
         const x = cat().extras.find(x => x.nombre === f.nombre_extra);
         mu.extras.push({ producto: x ? x.nombre : '', nombre: f.nombre_extra || 'Extra', precio: f.precio_unitario || 0, cantidad: f.cantidad_extra || 1 });
       }
@@ -733,6 +984,7 @@ const App = (() => {
         const [tipo, m, a, k] = el.dataset.excl.split('|');
         const mu = pres.muebles[+m];
         if (tipo === 's') mu.secciones[+a].excluir[k] = !el.checked;
+        else if (tipo === 'h') mu.herrajes[+a].excluir = !el.checked;
         else mu.extras[+a].excluir = !el.checked;
         marcarCambios(); recalcular();
         return;
@@ -766,16 +1018,32 @@ const App = (() => {
       if (cambios && !confirm('Hay cambios sin guardar. ¿Importar igualmente?')) return;
       importarPlantilla(await f.arrayBuffer());
     });
+    $('#archivo-plano').addEventListener('change', e => {
+      const archivos = [...e.target.files]; e.target.value = '';
+      if (archivos.length) adjuntarPlanos(archivos);
+    });
+    // Presupuesto .json traído de fuera (por ejemplo, hecho con index_piezas.html sin el NAS).
+    // Con la carpeta del NAS se trata como nuevo: al guardarlo va a la carpeta de su cliente.
     alElegir('#archivo-json', async f => {
-      pres = prepararCargado(JSON.parse(await f.text())); fechaArchivo = null; cambios = false; pintarTodo();
+      const d = JSON.parse(await f.text());
+      if (!d.muebles && !d.secciones) throw new Error('Ese archivo no es un presupuesto.');
+      pres = prepararCargado(d); fechaArchivo = null;
+      if (modoCarpeta) { delete pres.ubicacion; cambios = true; } else cambios = false;
+      pintarTodo();
+      if (modoCarpeta) notificar('Presupuesto importado. Revisa los precios y guárdalo.');
     });
   }
 
-  function notificar(texto) {
+  function notificar(texto, enlace) {
     const n = $('#notificacion');
     n.textContent = texto; n.hidden = false;
+    if (enlace) {
+      const a = document.createElement('a');
+      a.href = enlace.url; a.target = '_blank'; a.textContent = enlace.texto;
+      n.append(' ', a);
+    }
     clearTimeout(notificar.t);
-    notificar.t = setTimeout(() => { n.hidden = true; }, 3500);
+    notificar.t = setTimeout(() => { n.hidden = true; }, enlace ? 10000 : 3500);
   }
 
   // ------------------------------------------------------------- arranque
@@ -814,7 +1082,7 @@ const App = (() => {
         try { await fn(); } catch (e) {
           if (e.name === 'AbortError') return;
           $('#inicio-error').textContent = e.name === 'NotFoundError'
-            ? `No encuentro ${Almacen.ARCHIVO_CATALOGO} en esa carpeta. Elige la carpeta donde está index.html y el catálogo.`
+            ? `No encuentro ${Almacen.PROGRAMA}/${Almacen.ARCHIVO_CATALOGO} en esa carpeta. Elige la carpeta que contiene ${Almacen.PROGRAMA} y ${Almacen.PRESUPUESTOS}.`
             : e.message;
         }
       };
@@ -856,7 +1124,7 @@ const App = (() => {
       ]);
     }
     pantallaInicio(
-      'Elige la carpeta compartida del NAS donde están <strong>index.html</strong> y <strong>catalogo.xlsx</strong>.<br>' +
+      `Elige la carpeta compartida del NAS que contiene <strong>${Almacen.PROGRAMA}</strong> y <strong>${Almacen.PRESUPUESTOS}</strong>.<br>` +
       'Solo hay que hacerlo una vez en cada ordenador.',
       [['Elegir carpeta', async () => { await Almacen.elegirCarpeta(); await conCarpeta(); }, true]]);
   }

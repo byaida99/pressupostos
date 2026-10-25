@@ -25,8 +25,9 @@ const Catalogo = (() => {
   }
 
   // Devuelve las filas de una pestaña como objetos { cabecera: valor }
-  function filas(libro, nombreHoja) {
+  function filas(libro, nombreHoja, opcional = false) {
     const nombre = libro.SheetNames.find(n => normalizar(n) === normalizar(nombreHoja));
+    if (!nombre && opcional) return [];
     if (!nombre) throw new Error(`Falta la pestaña «${nombreHoja}» en catalogo.xlsx`);
     const datos = XLSX.utils.sheet_to_json(libro.Sheets[nombre], { header: 1, defval: '' });
     const cabeceras = (datos[0] || []).map(normalizar);
@@ -41,6 +42,25 @@ const Catalogo = (() => {
     return i === -1 ? '' : fila.celdas[i];
   }
 
+  // Cantos escritos como «L1 L2 A1 A2», «todos» (o 4), «largos», «anchos». Vacío = ninguno.
+  function leerCantos(valor) {
+    const t = normalizar(valor).replace(/[,;+]/g, ' ');
+    if (!t) return [false, false, false, false];
+    if (t.startsWith('tod') || t === '4') return [true, true, true, true];
+    if (t.startsWith('larg')) return [true, true, false, false];
+    if (t.startsWith('anch')) return [false, false, true, true];
+    const partes = t.split(/\s+/);
+    return ['l1', 'l2', 'a1', 'a2'].map(k => partes.includes(k));
+  }
+
+  // Si el catálogo no tiene la pestaña «Piezas». L1 es el canto delantero.
+  const L1 = [true, false, false, false], TODOS = [true, true, true, true], NINGUNO = [false, false, false, false];
+  const PIEZAS_POR_DEFECTO = [
+    ['Lateral', L1], ['Lateral visto', L1], ['Sobre', L1], ['Base', L1], ['Estante fijo', L1], ['Divisoria', L1],
+    ['Estante móvil', TODOS], ['Frontal', TODOS], ['Puerta', TODOS], ['Frente de cajón', TODOS],
+    ['Trasera', NINGUNO], ['Zócalo', L1], ['Regleta vertical', NINGUNO], ['Regleta horizontal', NINGUNO]
+  ].map(([nombre, cantos]) => ({ nombre, cantos }));
+
   const PARAMETROS = [
     ['mermaPct', 'merma'],
     ['corteMl', 'corte'],
@@ -54,7 +74,9 @@ const Catalogo = (() => {
     ['validezDias', 'validez'],
     ['logo', 'logo', 'texto'],
     ['empresa', 'nombre de la empresa', 'texto'],
-    ['textoPie', 'texto al pie', 'texto']
+    ['textoPie', 'texto al pie', 'texto'],
+    ['pagoInicialPct', 'pago inicial', 'numero', 50],
+    ['iban', 'numero de cuenta', 'texto', '']
   ];
 
   function desdeLibro(libro) {
@@ -67,7 +89,8 @@ const Catalogo = (() => {
         nombre: String(col(f, 'nombre')).trim(),
         canto: canto.startsWith('pul') ? 'PULIDO' : canto.startsWith('cant') ? 'CANTO' : 'NO',
         acabadoSuperficial: siNo(col(f, 'acabado')),
-        medida: String(col(f, 'medida')).trim()
+        medida: String(col(f, 'medida')).trim(),
+        lijadoM2: numero(col(f, 'lijado'))
       };
     }).filter(f => f.codigo);
     const codigos = new Set(familias.map(f => f.codigo));
@@ -97,6 +120,19 @@ const Catalogo = (() => {
       precio: numero(col(f, 'precio'))
     })).filter(e => e.nombre);
 
+    // Herrajes (bisagras, cajones…), agrupados por categoría. Pestaña opcional.
+    const herrajes = filas(libro, 'Herrajes', true).map(f => ({
+      categoria: String(col(f, 'categoria')).trim() || 'Otros',
+      nombre: String(col(f, 'nombre')).trim(),
+      precio: numero(col(f, 'precio'))
+    })).filter(h => h.nombre);
+
+    // Nombres de pieza habituales con sus cantos. Pestaña opcional.
+    const piezas = filas(libro, 'Piezas', true).map(f => ({
+      nombre: String(col(f, 'nombre')).trim(),
+      cantos: leerCantos(col(f, 'cantos'))
+    })).filter(p => p.nombre);
+
     const medidas = filas(libro, 'Medidas')
       .map(f => String(f.celdas[0]).replace(/\s/g, '').replace(/[×X]/g, 'x'))
       .filter(m => /^\d+(\.\d+)?x\d+(\.\d+)?$/.test(m));
@@ -112,17 +148,20 @@ const Catalogo = (() => {
       const def = PARAMETROS.find(([, inicio]) => nombre.startsWith(inicio));
       if (!def) return;
       const [clave, , tipo] = def;
+      if (tipo === 'numero' && String(valor).trim() === '') return;
       parametros[clave] = tipo === 'siNo' ? siNo(valor) : tipo === 'texto' ? String(valor).trim() : numero(valor);
     });
-    PARAMETROS.forEach(([clave, inicio]) => {
-      if (!(clave in parametros)) avisos.push(`Falta el parámetro «${inicio}» en la pestaña Parámetros`);
+    PARAMETROS.forEach(([clave, inicio, , porDefecto]) => {
+      if (clave in parametros) return;
+      if (porDefecto !== undefined) parametros[clave] = porDefecto; // parámetros añadidos después: opcionales
+      else avisos.push(`Falta el parámetro «${inicio}» en la pestaña Parámetros`);
     });
 
     familias.forEach(fa => {
       if (fa.medida && !medidas.includes(fa.medida)) medidas.push(fa.medida);
     });
 
-    return { familias, tableros, acabados, extras, medidas, recargo, parametros, avisos };
+    return { familias, tableros, acabados, extras, herrajes, piezas, medidas, recargo, parametros, avisos };
   }
 
   function desdeArchivo(buffer, fechaArchivo) {
@@ -145,11 +184,22 @@ const Catalogo = (() => {
   const tablero = (cat, codigoFamilia, acabado, grosor) =>
     cat.tableros.find(t => t.familia === codigoFamilia && t.acabado === acabado && t.grosor === grosor);
   const acabadosDe = (cat, codigoFamilia) => cat.acabados.filter(a => a.familia === codigoFamilia);
-  const textoTablero = t =>
-    `${t.codigo ? t.codigo + ' ' : ''}${t.acabado} · ${t.grosor} mm (${t.precioM2.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €/m²)`;
+  // Los presupuestos guardados antes de existir los herrajes no los llevan en sus precios
+  const herrajes = cat => cat.herrajes || [];
+  const categoriasHerraje = cat => [...new Set(herrajes(cat).map(h => h.categoria))];
+  const herraje = (cat, nombre) => herrajes(cat).find(h => normalizar(h.nombre) === normalizar(nombre));
+  const piezas = cat => cat?.piezas?.length ? cat.piezas : PIEZAS_POR_DEFECTO;
+  // Cantos habituales de una pieza por su nombre, o null si no es un nombre conocido
+  const cantosPieza = (cat, nombre) => {
+    const p = piezas(cat).find(x => normalizar(x.nombre) === normalizar(nombre));
+    return p ? [...p.cantos] : null;
+  };
+  // En index_piezas.html (window.SIN_PRECIOS) no se muestra el precio
+  const textoTablero = t => `${t.codigo ? t.codigo + ' ' : ''}${t.acabado} · ${t.grosor} mm` +
+    (typeof window !== 'undefined' && window.SIN_PRECIOS ? '' : ` (${t.precioM2.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €/m²)`);
 
   return {
-    SIN_ACABADO, normalizar, numero, desdeArchivo, mismosPrecios,
-    familia, tablerosDe, tablero, acabadosDe, textoTablero
+    SIN_ACABADO, normalizar, numero, leerCantos, desdeArchivo, mismosPrecios, piezas, cantosPieza,
+    familia, tablerosDe, tablero, acabadosDe, textoTablero, herrajes, categoriasHerraje, herraje
   };
 })();
