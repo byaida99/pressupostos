@@ -777,7 +777,10 @@ const App = (() => {
   function conectarEventos() {
     document.addEventListener('click', e => {
       const b = e.target.closest('[data-accion]');
-      if (b && acciones[b.dataset.accion]) { e.preventDefault(); acciones[b.dataset.accion](b); }
+      if (b && acciones[b.dataset.accion]) {
+        e.preventDefault();
+        Promise.resolve().then(() => acciones[b.dataset.accion](b)).catch(mostrarError);
+      }
     });
     document.addEventListener('input', e => {
       const el = e.target;
@@ -902,6 +905,15 @@ const App = (() => {
       catch (err) { $('#inicio-error').textContent = err.message; }
     };
   }
+
+  // Cualquier fallo inesperado se enseña en pantalla en vez de quedarse en silencio
+  function mostrarError(e) {
+    const msg = e?.message || e?.reason?.message || String(e?.reason || e);
+    console.error(e);
+    alert('Ha ocurrido un error:\n\n' + msg + '\n\nHaz una captura de este mensaje para revisarlo.');
+  }
+  window.addEventListener('unhandledrejection', e => mostrarError(e.reason));
+  window.addEventListener('error', e => mostrarError(e.error || e.message));
 
   async function iniciar() {
     if (SIN_PRECIOS) { document.body.classList.add('sin-precios'); document.title += ' (sin precios)'; }
