@@ -5,7 +5,10 @@
 
 const App = (() => {
   const SIN = Catalogo.SIN_ACABADO;
-  const CLAVE_BORRADOR = 'presupuesto-borrador-v4';
+  // index_sin_precios.html abre esta misma app con ?sin-precios: no muestra ningún
+  // importe y guarda con «_temp» para terminarlo luego con index.html
+  const SIN_PRECIOS = Catalogo.sinPrecios;
+  const CLAVE_BORRADOR = 'presupuesto-borrador-v4' + (SIN_PRECIOS ? '-temp' : '');
 
   let catActual = null;      // catálogo leído ahora del Excel
   let pres = null;           // presupuesto en pantalla (lleva sus propios precios en pres.precios)
@@ -135,7 +138,7 @@ const App = (() => {
         ${conAcabado ? `<td class="acabado-celda"><select data-bind="pz.acabado">${acabados.map(a => opt(a, a, a === pz.acabado)).join('')}</select>
           <label title="Acabado por las dos caras"><input type="checkbox" data-bind="pz.dosCaras"${pz.dosCaras ? ' checked' : ''}>2 caras</label></td>` : ''}
         <td class="num salida" data-out="m2"></td>
-        <td class="num salida" data-out="coste"></td>
+        <td class="num salida col-precio" data-out="coste"></td>
         <td class="acciones">
           <button class="mini" data-accion="duplicar-pieza" title="Duplicar fila">⧉</button>
           <button class="mini peligro" data-accion="borrar-pieza" title="Borrar fila">✕</button>
@@ -165,7 +168,7 @@ const App = (() => {
         <thead><tr>
           <th>Pieza</th><th class="num">Largo</th><th class="num">Ancho</th><th class="num">Cant.</th>
           ${conCanto ? '<th>Cantos</th>' : ''}${conAcabado ? '<th>Acabado</th>' : ''}
-          <th class="num">m²</th><th class="num">€</th><th></th>
+          <th class="num">m²</th><th class="num col-precio">€</th><th></th>
         </tr></thead>
         <tbody>${filas}</tbody>
       </table>
@@ -182,12 +185,12 @@ const App = (() => {
       <tr data-e="${e}">
         <td><select data-bind="ex.producto">
           ${opt('', 'Otro (escribir)', !ex.producto)}
-          ${c.extras.map(x => opt(x.nombre, `${x.nombre} (${dec(x.precio)} €)`, x.nombre === ex.producto)).join('')}
+          ${c.extras.map(x => opt(x.nombre, SIN_PRECIOS ? x.nombre : `${x.nombre} (${dec(x.precio)} €)`, x.nombre === ex.producto)).join('')}
         </select></td>
         <td><input type="text" data-bind="ex.nombre" value="${esc(ex.nombre)}" placeholder="Descripción"></td>
-        <td><input type="number" class="num" data-bind="ex.precio" value="${esc(ex.precio)}" step="0.01" min="0"></td>
+        <td class="col-precio"><input type="number" class="num" data-bind="ex.precio" value="${esc(ex.precio)}" step="0.01" min="0"></td>
         <td><input type="number" class="num corto" data-bind="ex.cantidad" value="${esc(ex.cantidad)}" min="0"></td>
-        <td class="num salida" data-out="extra"></td>
+        <td class="num salida col-precio" data-out="extra"></td>
         <td class="acciones"><button class="mini peligro" data-accion="borrar-extra" title="Borrar">✕</button></td>
       </tr>`).join('');
   }
@@ -214,7 +217,7 @@ const App = (() => {
         <div class="mueble-extras">
           <h3>Extras y herrajes</h3>
           ${mu.extras.length ? `<table class="tabla tabla-extras">
-            <thead><tr><th>Producto</th><th>Descripción</th><th class="num">Precio €</th><th class="num">Cant.</th><th class="num">Total</th><th></th></tr></thead>
+            <thead><tr><th>Producto</th><th>Descripción</th><th class="num col-precio">Precio €</th><th class="num">Cant.</th><th class="num col-precio">Total</th><th></th></tr></thead>
             <tbody>${htmlExtras(mu)}</tbody></table>` : ''}
           <button class="anadir" data-accion="anadir-extra">➕ Añadir extra</button>
         </div>
@@ -255,6 +258,14 @@ const App = (() => {
     const p = cat().parametros;
     const fila = (t, v, cls = '') => `<div class="fila ${cls}"><span>${t}</span><span>${v}</span></div>`;
     let html = '';
+    if (SIN_PRECIOS) {
+      html += `<p class="aviso-temp">Versión <strong>sin precios</strong>. Se guarda como «_temp»: ábrelo después con la app normal para terminarlo.</p>`;
+      html += pres.muebles.map((mu, m) => fila(mu.activo === false ? `<s>${esc(nombreMueble(mu, m))}</s>` : esc(nombreMueble(mu, m)),
+        `${mu.secciones.reduce((n, s) => n + s.piezas.filter(pz => pz.largo && pz.ancho).length, 0)} piezas`, mu.activo === false ? 'apagado' : '')).join('');
+      html += `<div class="botones resumen-botones"><button class="principal" data-accion="guardar">💾 Guardar</button></div>`;
+      $('#resumen').innerHTML = html;
+      return;
+    }
     if (pres.muebles.length > 1) {
       html += '<div class="resumen-muebles">' + pres.muebles.map((mu, m) => mu.activo === false
         ? fila(`<s>${esc(nombreMueble(mu, m))}</s>`, 'no incluido', 'apagado')
@@ -298,7 +309,7 @@ const App = (() => {
           `${dec(r.m2Piezas)} m² piezas · ${dec(r.m2Neto)} m² con merma ${dec(p.mermaPct, 0)} % · ` +
           `${dec(r.tableros, 1)} tablero(s) · ${dec(r.mlCorte)} ml corte · ${dec(r.mlCanteado)} ml canteado` +
           (r.rollos ? ` (${r.rollos} rollo${r.rollos > 1 ? 's' : ''})` : '') +
-          ` · <strong>${euros(r.subtotal)}</strong>`;
+          (SIN_PRECIOS ? '' : ` · <strong>${euros(r.subtotal)}</strong>`);
       });
       mEl.querySelectorAll('tr[data-e]').forEach(tr => {
         tr.querySelector('[data-out=extra]').textContent = euros(rm.extras[+tr.dataset.e]);
@@ -311,7 +322,7 @@ const App = (() => {
 
   function pintarCabecera() {
     const nombre = pres.cliente.nombre ? ` · ${pres.cliente.nombre}` : '';
-    $('#titulo-presupuesto').textContent = (pres.numero ? `Presupuesto ${pres.numero}` : 'Presupuesto nuevo') + nombre;
+    $('#titulo-presupuesto').textContent = (pres.numero ? `Presupuesto ${pres.numero}` : 'Presupuesto nuevo') + nombre + (SIN_PRECIOS ? ' (sin precios)' : '');
     $('#estado-guardado').textContent = cambios ? '● Cambios sin guardar' : (pres.numero ? '✓ Guardado' : '');
     $('#estado-guardado').className = 'estado ' + (cambios ? 'pendiente' : 'ok');
   }
@@ -507,7 +518,7 @@ const App = (() => {
     guardar,
     abrir,
     'pdf-cliente': pdfCliente,
-    async 'pdf-completo'() { if (await guardarAntesDeImprimir()) Imprimir.completo(pres, res, catImprimir()); },
+    async 'pdf-completo'() { if (!SIN_PRECIOS && await guardarAntesDeImprimir()) Imprimir.completo(pres, res, catImprimir()); },
     async 'recargar-catalogo'() {
       cerrarMenu();
       try {
@@ -585,16 +596,16 @@ const App = (() => {
   async function guardar() {
     pres.resumen = { total: Math.round(res.total * 100) / 100 };
     if (!modoCarpeta) {
-      descargar(`${pres.numero || 'presupuesto'} ${pres.cliente.nombre || ''}`.trim() + '.json',
+      descargar(`${pres.numero || 'presupuesto'} ${pres.cliente.nombre || ''}`.trim() + (SIN_PRECIOS ? Almacen.SUFIJO_TEMP : '') + '.json',
         JSON.stringify(pres, null, 2), 'application/json');
       cambios = false; borrarBorrador(); pintarCabecera();
       return true;
     }
     try {
-      let r = await Almacen.guardar(pres, fechaArchivo);
+      let r = await Almacen.guardar(pres, fechaArchivo, false, SIN_PRECIOS);
       if (r.conflicto) {
         if (!confirm('Otro ordenador ha modificado este presupuesto desde que lo abriste.\n\n¿Sobrescribirlo con tu versión?')) return false;
-        r = await Almacen.guardar(pres, fechaArchivo, true);
+        r = await Almacen.guardar(pres, fechaArchivo, true, SIN_PRECIOS);
       }
       fechaArchivo = r.fecha;
       cambios = false; borrarBorrador(); pintarCabecera();
@@ -608,6 +619,7 @@ const App = (() => {
 
   // Genera el PDF del cliente y lo guarda junto al .json, con el mismo nombre
   async function pdfCliente() {
+    if (SIN_PRECIOS) return;
     if (!(await guardarAntesDeImprimir())) return;
     const c = catImprimir();
     let blob;
@@ -649,15 +661,16 @@ const App = (() => {
     $('#buscar').value = '';
     dialogo.showModal();
     try {
-      const items = await Almacen.listar();
+      // La versión sin precios solo abre sus propios _temp, para no renombrar un presupuesto terminado
+      const items = (await Almacen.listar()).filter(it => !SIN_PRECIOS || it.temp);
       const pintar = filtro => {
         const f = Catalogo.normalizar(filtro);
         const vis = items.filter(it => !f || Catalogo.normalizar(`${it.numero} ${it.codigo} ${it.cliente} ${it.referencia} ${it.ruta.join(' ')}`).includes(f));
-        lista.innerHTML = vis.length ? `<table class="tabla"><thead><tr><th>Número</th><th>Código</th><th>Cliente</th><th>Referencia</th><th>Fecha</th><th class="num">Total</th></tr></thead><tbody>
+        lista.innerHTML = vis.length ? `<table class="tabla"><thead><tr><th>Número</th><th>Código</th><th>Cliente</th><th>Referencia</th><th>Fecha</th><th class="num col-precio">Total</th></tr></thead><tbody>
           ${vis.map(it => `<tr class="clicable" data-k="${items.indexOf(it)}">
-            <td>${esc(it.numero)}</td><td>${esc(it.codigo || it.ruta[0] || '')}</td><td>${esc(it.cliente)}</td><td>${esc(it.referencia)}</td>
+            <td>${esc(it.numero)}${it.temp && !SIN_PRECIOS ? ' <span class="etiqueta-temp" title="Guardado sin precios: al guardarlo aquí pierde el _temp">temp</span>' : ''}</td><td>${esc(it.codigo || it.ruta[0] || '')}</td><td>${esc(it.cliente)}</td><td>${esc(it.referencia)}</td>
             <td>${it.fecha ? new Date(it.fecha).toLocaleDateString('es-ES') : ''}</td>
-            <td class="num">${it.total != null ? euros(it.total) : ''}</td></tr>`).join('')}</tbody></table>`
+            <td class="num col-precio">${it.total != null ? euros(it.total) : ''}</td></tr>`).join('')}</tbody></table>`
           : '<p>No hay presupuestos guardados' + (f ? ' que coincidan' : ' todavía') + '.</p>';
       };
       pintar('');
@@ -891,6 +904,7 @@ const App = (() => {
   }
 
   async function iniciar() {
+    if (SIN_PRECIOS) { document.body.classList.add('sin-precios'); document.title += ' (sin precios)'; }
     conectarEventos();
     Mueble.iniciar(() => cat(), anadirPiezasMueble);
     const estado = await Almacen.recuperarCarpeta();

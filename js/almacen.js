@@ -1,14 +1,16 @@
 // almacen.js
 // Lectura y escritura en la carpeta del NAS (Chrome / Edge).
 // Estructura de la carpeta elegida:
-//   0_PROGRAMA/index.html, catalogo.xlsx, LOGO.JPG…
-//   1_PRESSUPOSTOS/1234/2026-045 - Cliente.json  (+ .pdf con el mismo nombre)
-//   1_PRESSUPOSTOS/1000/Cliente - 600000000/2026-046 - Cliente.json   (clientes sin código)
+//   00_PROGRAMA/index.html, catalogo.xlsx, LOGO.JPG…
+//   01_PENDENTS_ACCEPTACIO/1234/2026-045 - Cliente.json  (+ .pdf con el mismo nombre)
+//   01_PENDENTS_ACCEPTACIO/1000/Cliente - 600000000/2026-046 - Cliente.json   (clientes sin código)
+//   Los guardados desde la versión sin precios acaban en «_temp» (2026-047 - Cliente_temp.json).
 
 const Almacen = (() => {
   const ARCHIVO_CATALOGO = 'catalogo.xlsx';
-  const PROGRAMA = '0_PROGRAMA';
-  const PRESUPUESTOS = '1_PRESSUPOSTOS';
+  const PROGRAMA = '00_PROGRAMA';
+  const PRESUPUESTOS = '01_PENDENTS_ACCEPTACIO';
+  const SUFIJO_TEMP = '_temp';
   const SIN_CODIGO = '1000';
   const ES_PRESUPUESTO = /^(\d{4})-(\d+).*\.json$/i;
   const soportado = typeof window.showDirectoryPicker === 'function';
@@ -69,7 +71,7 @@ const Almacen = (() => {
     return { buffer: await f.arrayBuffer(), fecha: f.lastModified };
   }
 
-  // Devuelve un archivo de 0_PROGRAMA (el logo) como data URL, o '' si no existe
+  // Devuelve un archivo de 00_PROGRAMA (el logo) como data URL, o '' si no existe
   async function leerComoDataUrl(nombre) {
     try {
       const f = await (await (await carpetaPrograma()).getFileHandle(nombre)).getFile();
@@ -93,10 +95,9 @@ const Almacen = (() => {
       .replace(/[^\w .,&()'-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60);
   }
 
-  // 1_PRESSUPOSTOS (acepta otra grafía, como 1_PRESUPOSTOS, si ya existe así)
   async function carpetaPresupuestos(crear) {
     for await (const [nombre, h] of raiz.entries()) {
-      if (h.kind === 'directory' && /^1_PRES/i.test(nombre)) return h;
+      if (h.kind === 'directory' && nombre.toUpperCase() === PRESUPUESTOS) return h;
     }
     return raiz.getDirectoryHandle(PRESUPUESTOS, { create: crear });
   }
@@ -127,7 +128,7 @@ const Almacen = (() => {
     return dir;
   }
 
-  // Recorre 1_PRESSUPOSTOS hasta 3 niveles y llama a fn(archivo, ruta) por cada AAAA-NNN….json
+  // Recorre 01_PENDENTS_ACCEPTACIO hasta 3 niveles y llama a fn(archivo, ruta) por cada AAAA-NNN….json
   async function recorrer(fn) {
     let base;
     try { base = await carpetaPresupuestos(false); } catch (e) { return; }
@@ -148,7 +149,7 @@ const Almacen = (() => {
         lista.push({
           numero: d.numero || nombre.slice(0, 8), cliente: d.cliente?.nombre || '', codigo: d.cliente?.codigo || '',
           referencia: d.referencia || '', fecha: d.fecha || '', total: d.resumen?.total ?? null,
-          ruta, base: nombre.replace(/\.json$/i, '')
+          ruta, base: nombre.replace(/\.json$/i, ''), temp: /_temp\.json$/i.test(nombre)
         });
       } catch (e) { /* archivo que no es un presupuesto válido: se ignora */ }
     });
@@ -165,7 +166,7 @@ const Almacen = (() => {
     return `${anyo}-${String(max + 1).padStart(3, '0')}`;
   }
 
-  const nombreBase = pres => [pres.numero, limpiarNombre(pres.cliente?.nombre)].filter(Boolean).join(' - ');
+  const nombreBase = (pres, temp) => [pres.numero, limpiarNombre(pres.cliente?.nombre)].filter(Boolean).join(' - ') + (temp ? SUFIJO_TEMP : '');
   const mismaUbicacion = (a, b) => a && b && a.base === b.base && a.ruta.join('/') === b.ruta.join('/');
   const textoRuta = u => [PRESUPUESTOS, ...u.ruta, u.base].join('/');
 
@@ -185,7 +186,9 @@ const Almacen = (() => {
   // `fechaAbierto` es la fecha del archivo cuando se abrió: si ha cambiado,
   // otro ordenador lo ha modificado y se devuelve { conflicto: true }.
   // Si cambian el código o el nombre del cliente, el .json y el .pdf se mueven a su carpeta nueva.
-  async function guardar(pres, fechaAbierto, forzar = false) {
+  // Con `temp` el nombre acaba en «_temp»; al guardarlo después desde la versión normal
+  // se renombra sin el sufijo (el _temp se borra).
+  async function guardar(pres, fechaAbierto, forzar = false, temp = false) {
     if (!pres.numero) pres.numero = await siguienteNumero(new Date().getFullYear());
     const antes = pres.ubicacion || null;
     let dirAntes = null;
@@ -198,7 +201,7 @@ const Almacen = (() => {
     }
 
     const { dir, ruta } = await rutaCliente(pres, true);
-    const ahora = { ruta, base: nombreBase(pres) };
+    const ahora = { ruta, base: nombreBase(pres, temp) };
     pres.ubicacion = ahora;
     const fh = await escribir(dir, ahora.base + '.json', JSON.stringify(pres, null, 2));
 
@@ -235,6 +238,6 @@ const Almacen = (() => {
   return {
     soportado, recuperarCarpeta, pedirPermiso, elegirCarpeta, nombreCarpeta,
     leerCatalogo, leerComoDataUrl, listar, guardar, guardarPdf, abrir,
-    ARCHIVO_CATALOGO, PROGRAMA, PRESUPUESTOS, SIN_CODIGO
+    ARCHIVO_CATALOGO, PROGRAMA, PRESUPUESTOS, SIN_CODIGO, SUFIJO_TEMP
   };
 })();

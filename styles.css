@@ -300,3 +300,11 @@ button:disabled { opacity: .35; cursor: default; border-color: var(--borde); }
 .cli-pie { margin-top: 26px; padding-top: 10px; border-top: 1px solid #ece8e3; text-align: center; font-size: 10.5px; color: #888; }
 .notificacion a { color: #ffb27f; font-weight: 600; margin-left: 8px; }
 .cli-tabla th { border: none; }
+
+/* ---------- Versión sin precios (index_sin_precios.html) ---------- */
+.sin-precios [data-accion="pdf-cliente"], .sin-precios [data-accion="pdf-completo"],
+.sin-precios #desglose-tarjeta, .sin-precios #aviso-precios, .sin-precios .resumen .descuento,
+.sin-precios .mueble-precio, .sin-precios .col-precio { display: none !important; }
+.sin-precios .barra { border-bottom-color: #4a7fb0; }
+.aviso-temp { background: #eaf2fa; border: 1px solid #b9d2ea; color: #2c5578; border-radius: 6px; padding: 8px 10px; font-size: 13px; margin: 0 0 10px; }
+.etiqueta-temp { display: inline-block; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; background: #eaf2fa; color: #2c5578; border: 1px solid #b9d2ea; border-radius: 10px; padding: 0 6px; margin-left: 4px; }

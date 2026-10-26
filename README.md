@@ -6,8 +6,8 @@ App para hacer presupuestos de mobiliario a medida. Funciona abriendo `index.htm
 
 ```
 CARPETA COMPARTIDA/
-  0_PROGRAMA/          ← esta app (index.html, catalogo.xlsx, LOGO.JPG…)
-  1_PRESSUPOSTOS/
+  00_PROGRAMA/                ← esta app (index.html, catalogo.xlsx, LOGO.JPG…)
+  01_PENDENTS_ACCEPTACIO/
     1234/              ← un cliente con código (vale también «1234 - Nombre»)
       2026-001 - Nombre.json
       2026-001 - Nombre.pdf
@@ -22,6 +22,7 @@ CARPETA COMPARTIDA/
 | Archivo | Para qué sirve |
 | --- | --- |
 | `index.html` | La app. Se abre con doble clic. |
+| `index_sin_precios.html` | La misma app sin ningún precio, para tomar medidas o preparar piezas. Guarda con «_temp» al final del nombre (`2026-005 - Cliente_temp.json`); al abrirlo y guardarlo con `index.html` pierde el «_temp». Solo abre presupuestos «_temp». |
 | `catalogo.xlsx` | Precios: tableros, cantos, acabados, extras, recargo y parámetros. **Se edita con Excel.** |
 | `plantilla_presupuesto.xlsx` | Plantilla para preparar un presupuesto en Excel e importarlo. |
 | `LOGO.JPG` | Logo que sale en el PDF del cliente (el nombre se cambia en el catálogo, pestaña Parámetros). |
@@ -29,7 +30,7 @@ CARPETA COMPARTIDA/
 
 ## Uso
 
-1. La primera vez en cada ordenador, la app pide elegir la carpeta del NAS que contiene `0_PROGRAMA` y `1_PRESSUPOSTOS`. Después solo hay que pulsar «Conectar» al abrirla.
+1. La primera vez en cada ordenador, la app pide elegir la carpeta del NAS que contiene `00_PROGRAMA` y `01_PENDENTS_ACCEPTACIO`. Después solo hay que pulsar «Conectar» al abrirla.
 2. **Guardar** (o Ctrl+S) asigna el número siguiente (`2026-001`, `2026-002`…) y guarda el `.json` en la carpeta del cliente según su **código**. Si la carpeta no existe, se crea. Sin código (o con 1000) va a `1000/Nombre - Teléfono`. Si luego se cambia el código o el nombre, el presupuesto y su PDF se mueven solos.
 3. **Abrir** muestra todos los presupuestos con un buscador (número, código, cliente o referencia). **Duplicar** crea uno nuevo a partir del abierto.
 4. **PDF cliente** genera el PDF y lo guarda junto al `.json`, con el mismo nombre. **PDF completo** (interno) abre el diálogo de impresión.

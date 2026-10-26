@@ -150,11 +150,14 @@ const Catalogo = (() => {
   const tablero = (cat, codigoFamilia, acabado, grosor) =>
     cat.tableros.find(t => t.familia === codigoFamilia && t.acabado === acabado && t.grosor === grosor);
   const acabadosDe = (cat, codigoFamilia) => cat.acabados.filter(a => a.familia === codigoFamilia);
+  // En la versión sin precios (index_sin_precios.html) no se muestra el €/m²
+  const sinPrecios = new URLSearchParams(location.search).has('sin-precios');
   const textoTablero = t =>
-    `${t.codigo ? t.codigo + ' ' : ''}${t.acabado} · ${t.grosor} mm (${t.precioM2.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €/m²)`;
+    `${t.codigo ? t.codigo + ' ' : ''}${t.acabado} · ${t.grosor} mm` +
+    (sinPrecios ? '' : ` (${t.precioM2.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €/m²)`);
 
   return {
-    SIN_ACABADO, normalizar, numero, desdeArchivo, mismosPrecios,
+    SIN_ACABADO, sinPrecios, normalizar, numero, desdeArchivo, mismosPrecios,
     familia, tablerosDe, tablero, acabadosDe, textoTablero
   };
 })();
