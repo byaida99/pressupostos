@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Presupuestos de cocina</title>
+  <link rel="stylesheet" href="../styles.css">
+  <link rel="stylesheet" href="cocinas.css">
+</head>
+<body>
+
+  <!-- Pantalla de inicio: conectar la carpeta del NAS -->
+  <div id="inicio" class="inicio">
+    <div class="inicio-caja">
+      <h1>Presupuestos de cocina</h1>
+      <p id="inicio-texto">Cargando…</p>
+      <div id="inicio-botones" class="botones"></div>
+      <p id="inicio-error" class="error"></p>
+    </div>
+  </div>
+
+  <div id="app" class="app" hidden>
+    <header class="barra">
+      <div class="barra-titulo">
+        <strong id="titulo-presupuesto">Cocina nueva</strong>
+        <span id="estado-guardado" class="estado"></span>
+      </div>
+      <nav class="barra-acciones">
+        <button data-accion="nuevo" title="Nuevo presupuesto de cocina">＋ Nuevo</button>
+        <button data-accion="abrir" title="Abrir un presupuesto de cocina guardado">📂 Abrir</button>
+        <button data-accion="guardar" class="principal" title="Guardar (Ctrl+S)">💾 Guardar</button>
+        <button data-accion="duplicar" title="Copiar este presupuesto como uno nuevo">⧉ Duplicar</button>
+        <button data-accion="pdf-cliente" class="principal">🖨️ PDF cliente</button>
+        <button data-accion="pdf-completo">🖨️ PDF detalle</button>
+        <details class="menu">
+          <summary>⋯</summary>
+          <div class="menu-lista">
+            <button data-accion="recargar-catalogo">↻ Recargar catálogo</button>
+            <button data-accion="importar-json">⬆️ Importar presupuesto (.json)</button>
+            <button data-accion="cambiar-carpeta">📁 Cambiar carpeta</button>
+          </div>
+        </details>
+      </nav>
+    </header>
+
+    <div id="aviso-precios" class="aviso" hidden></div>
+
+    <div class="cuerpo">
+      <main class="principal-col">
+
+        <section class="tarjeta">
+          <h2>Cliente y proyecto</h2>
+          <div class="rejilla-datos">
+            <label>Código cliente <input type="text" data-bind="cliente.codigo" placeholder="1000 = sin código" title="Carpeta donde se guarda. Vacío o 1000: cliente sin código"></label>
+            <label>Cliente <input type="text" data-bind="cliente.nombre" placeholder="Nombre del cliente"></label>
+            <label>Teléfono / email <input type="text" data-bind="cliente.contacto"></label>
+            <label>Referencia <input type="text" data-bind="referencia" placeholder="Ej: Cocina García"></label>
+            <label>Fecha <input type="date" data-bind="fecha"></label>
+            <label class="ancho-total">Descripción (sale en el PDF del cliente)
+              <textarea data-bind="descripcion" rows="2" placeholder="Ej: Cocina lacada blanco mate con columnas de horno y nevera integrada."></textarea>
+            </label>
+          </div>
+        </section>
+
+        <!-- Tarifa, acabado exterior y guías para toda la cocina -->
+        <section class="tarjeta">
+          <h2>Tarifa y acabado</h2>
+          <div class="opciones">
+            <div class="opcion">
+              <span class="opcion-titulo">Tarifa</span>
+              <div class="segmentos" id="op-tarifa"></div>
+            </div>
+            <div class="opcion">
+              <span class="opcion-titulo">Acabado exterior</span>
+              <div class="segmentos" id="op-acabado"></div>
+            </div>
+            <label class="opcion">Tipo <select id="op-tipo"></select></label>
+            <label class="opcion crece">Color / referencia <input type="text" data-bind="acabado.color" placeholder="Ej: Blanco roto, Roble natural…"></label>
+            <div class="opcion">
+              <span class="opcion-titulo">Guías de cajón</span>
+              <div class="segmentos" id="op-guias"></div>
+            </div>
+          </div>
+          <p class="leyenda">Puertas, frentes de cajón, laterales vistos y zócalos llevan el acabado exterior. Cada módulo puede llevar otro distinto en su columna «Acabado».</p>
+        </section>
+
+        <!-- Añadir módulos: se pulsa un módulo y se añade a la cocina -->
+        <section class="tarjeta">
+          <h2>Añadir módulos <small>(pulsa un módulo para añadirlo; las medidas se cambian después en la lista)</small></h2>
+          <div class="pestanas" id="pestanas"></div>
+          <div class="mosaico" id="mosaico"></div>
+        </section>
+
+        <section class="tarjeta">
+          <div class="cabecera-lista">
+            <h2>Cocina <small id="cuenta-modulos"></small></h2>
+          </div>
+          <div class="tabla-envoltura">
+            <table class="tabla tabla-lineas">
+              <thead><tr>
+                <th></th><th>Módulo</th><th class="num">Ancho</th><th class="num">Alto</th><th class="num">Fondo</th>
+                <th class="num">Estantes</th><th>Acabado</th><th class="num">Cant.</th><th class="num">Precio</th><th class="num">Total</th><th></th>
+              </tr></thead>
+              <tbody id="lineas"></tbody>
+            </table>
+          </div>
+          <p id="lineas-vacio" class="vacio-grande">Todavía no hay módulos. Pulsa uno arriba para añadirlo.</p>
+
+          <h3 class="titulo-extras">Otros conceptos <small>(precio final, sin recargo de tarifa)</small></h3>
+          <table class="tabla tabla-extras">
+            <thead><tr><th>Descripción</th><th class="num">Precio (€)</th><th class="num">Cant.</th><th class="num">Total</th><th></th></tr></thead>
+            <tbody id="extras"></tbody>
+          </table>
+          <button class="anadir" data-accion="anadir-extra">➕ Añadir concepto</button>
+        </section>
+      </main>
+
+      <aside class="resumen">
+        <h2>Resumen</h2>
+        <div id="resumen"></div>
+      </aside>
+    </div>
+  </div>
+
+  <dialog id="dialogo-abrir">
+    <form method="dialog" class="dialogo-cabecera">
+      <h2>Abrir presupuesto de cocina</h2>
+      <button value="cancelar" aria-label="Cerrar">✕</button>
+    </form>
+    <input type="search" id="buscar" placeholder="Buscar por número, cliente o referencia…">
+    <div id="lista-presupuestos" class="lista"></div>
+  </dialog>
+
+  <div id="listas-medidas"></div>
+  <input type="file" id="archivo-catalogo" accept=".xlsx" hidden>
+  <input type="file" id="archivo-json" accept=".json" hidden>
+
+  <div id="impresion"></div>
+  <div id="notificacion" class="notificacion" hidden></div>
+
+  <script src="../lib/xlsx.full.min.js"></script>
+  <script src="../lib/html2canvas.min.js"></script>
+  <script src="../lib/jspdf.umd.min.js"></script>
+  <script src="js/catalogo.js"></script>
+  <script src="js/calculo.js"></script>
+  <script src="js/dibujo.js"></script>
+  <script src="js/almacen.js"></script>
+  <script src="js/imprimir.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

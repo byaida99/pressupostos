@@ -9,6 +9,8 @@ CARPETA COMPARTIDA/
   00_PROGRAMA/             ← esta app (index.html, catalogo.xlsx, LOGO.JPG…)
     Presupuestos.bat       ← abre la app en su propia ventana de Edge
     Piezas sin precios.bat ← abre index_piezas.html igual
+    Cocinas.bat            ← abre la app de cocinas (cocinas/index.html)
+    cocinas/               ← app de presupuestos de cocina y su catalogo_cocinas.xlsx
   01_PENDENTS_ACCEPTACIO/
     1234/              ← un cliente con código (vale también «1234 - Nombre»)
       1234_Cocina_20261024.json
@@ -73,3 +75,18 @@ Los herrajes van en la pestaña «Herrajes»: la columna **Categoría** (Bisagra
 - El acabado superficial (lacado, barnizado, y el lijado) se suma primero, y después el recargo por escala, que se aplica sobre materiales + acabado. Su porcentaje se decide con ese mismo importe. Se puede desactivar con la casilla «Aplicar recargo por escala» del resumen. El acabado se presenta como opcional.
 - El descuento de carpintero se aplica sobre el tablero y el material de canto.
 - El porcentaje de recargo se decide con el total del presupuesto y se aplica igual a cada mueble, así la suma de los precios de los muebles es el total.
+
+## App de cocinas
+
+`cocinas/index.html` (o `Cocinas.bat`) es un generador sencillo de presupuestos de cocina por módulos, con el método de cálculo del Excel de cocinas. Usa la misma carpeta del NAS: guarda en `01_PENDENTS_ACCEPTACIO` con el mismo nombre `códigocliente_Referencia_fecha` (.json + .pdf) y numeración propia (`C2026-001`…). Cada app solo lista sus propios presupuestos.
+
+1. **Tarifa**: 1 Diseñadores, 2 Particulares (Diseñadores + 10 %), 3 Carpinteros (precios de carpintero, montaje 25 € por módulo).
+2. **Acabado exterior**: Melamina, Lacado o Rechapado y su tipo (Mate, Brillo…), con un campo de color. Lo llevan puertas, frentes de cajón, laterales vistos y zócalos. Cada módulo puede llevar otro acabado en su columna «Acabado».
+3. **Guías de cajón**: Blum (Legrabox) o Syskor.
+4. **Añadir módulos**: pestañas Bajos / Altos / Columnas / Piezas y extras; al pulsar un módulo se añade a la lista con sus medidas habituales. En la lista se cambian ancho, alto, fondo, estantes, acabado y cantidad (cualquier medida vale; el desplegable propone las habituales). ▸ muestra el desglose del precio.
+5. **Otros conceptos**: transporte, encimera… a precio final, sin recargo de tarifa.
+6. **PDF cliente** lo guarda junto al .json (si ya había PDF, como versión nueva `_V2`). **PDF detalle** es el desglose interno por módulo.
+
+`cocinas/catalogo_cocinas.xlsx` se edita con Excel: tarifas, tableros del interior, acabados, módulos (tipo, anchos, altos, puertas, cajones, estantes…), cajones y guías, piezas sueltas y parámetros (merma, corte, CNC, canteado, bisagras…). La pestaña «Instrucciones» explica cada columna.
+
+Cálculo de cada módulo: casco (2·ancho·fondo + 2·alto·fondo + trasera, con merma; canto, corte, CNC y canteado por ml) + puertas y frentes (m² con merma × precio del acabado + perímetro) + cajas de cajón de 16 mm + guías + estantes + herrajes (bisagras, patas o colgador) + montaje, y el recargo de la tarifa.

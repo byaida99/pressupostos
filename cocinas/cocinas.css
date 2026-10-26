@@ -1,0 +1,75 @@
+/* Presupuestos de cocina: lo propio de esta app (el resto viene de ../styles.css) */
+
+.opciones { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: flex-end; }
+.opcion { display: flex; flex-direction: column; gap: 4px; }
+.opcion.crece { flex: 1 1 200px; }
+.opcion-titulo { font-size: 12px; color: var(--gris); }
+.opcion select { min-width: 150px; }
+
+/* Botones de elección única (tarifa, acabado, guías) */
+.segmentos { display: inline-flex; border: 1px solid var(--borde); border-radius: 8px; overflow: hidden; background: var(--blanco); }
+.segmentos button { border: none; border-radius: 0; border-right: 1px solid var(--borde); padding: 8px 14px; }
+.segmentos button:last-child { border-right: none; }
+.segmentos button.activo { background: var(--naranja); color: #fff; font-weight: 600; }
+.segmentos button small { color: inherit; opacity: .75; margin-right: 4px; }
+
+/* Pestañas y mosaico de módulos */
+.pestanas { display: flex; gap: 4px; border-bottom: 2px solid var(--naranja); margin-bottom: 12px; flex-wrap: wrap; }
+.pestanas button { border: 1px solid var(--borde); border-bottom: none; border-radius: 8px 8px 0 0; padding: 8px 18px; font-weight: 600; background: var(--fondo); }
+.pestanas button.activo { background: var(--naranja); border-color: var(--naranja); color: #fff; }
+.mosaico { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.ficha { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 8px 8px; white-space: normal; text-align: center; min-height: 128px; justify-content: flex-start; }
+.ficha:hover { background: var(--naranja-suave); }
+.ficha .ficha-dibujo { height: 70px; display: flex; align-items: flex-end; }
+.ficha .ficha-nombre { font-size: 12.5px; line-height: 1.25; }
+.ficha .ficha-medidas { font-size: 11px; color: var(--gris); }
+.ficha.pieza { min-height: 0; padding: 12px 8px; }
+.ficha.pieza .ficha-dibujo { display: none; }
+
+/* Dibujo de módulo */
+.dibujo { display: block; overflow: visible; }
+.dibujo .d-casco { fill: #fff; stroke: #555; stroke-width: 1.2; }
+.dibujo .d-abierto { fill: var(--naranja-suave); }
+.dibujo .d-frente { fill: rgba(255, 127, 44, .14); stroke: var(--naranja-osc); stroke-width: .8; }
+.dibujo .d-tirador { stroke: #444; stroke-width: 1.4; stroke-linecap: round; }
+.dibujo .d-estante { stroke: #999; stroke-width: .8; stroke-dasharray: 2 2; }
+.dibujo .d-hueco { fill: #e8e5e1; stroke: #aaa; stroke-width: .6; }
+
+/* Lista de la cocina */
+.cabecera-lista { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.tabla-envoltura { overflow-x: auto; }
+.tabla-lineas td { padding: 4px; }
+.tabla-lineas td.celda-dibujo { width: 54px; text-align: center; }
+.tabla-lineas td.celda-dibujo .dibujo { margin: 0 auto; }
+.tabla-lineas td.celda-modulo { min-width: 200px; }
+.tabla-lineas td.celda-modulo select { font-weight: 600; }
+.tabla-lineas input.nota { margin-top: 3px; font-size: 12px; padding: 3px 6px; color: var(--gris); }
+.tabla-lineas input[type="number"] { -moz-appearance: textfield; appearance: textfield; padding: 5px 6px; text-align: right; }
+.tabla-lineas input[type="number"]::-webkit-inner-spin-button, .tabla-lineas input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.tabla-lineas td.medida { width: 72px; min-width: 72px; }
+.tabla-lineas td.medida input, .tabla-lineas td.medida select { text-align: right; }
+.tabla-lineas td.estantes { width: 56px; min-width: 56px; }
+.tabla-lineas td.cantidad { width: 56px; min-width: 56px; }
+.tabla-lineas td.celda-acabado { width: 175px; min-width: 175px; }
+.tabla-lineas td.precio-ud { width: 90px; }
+.tabla-lineas td.precio-total { width: 100px; font-weight: 700; }
+.tabla-lineas tr.grupo td { background: var(--naranja-suave); color: var(--naranja-osc); font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; padding: 5px 8px; }
+.tabla-lineas tr.con-error td { background: #fdecea; }
+.tabla-lineas tr.detalle td { background: #faf8f5; font-size: 12px; color: var(--gris); padding: 4px 8px 8px 62px; }
+.tabla-lineas tr.detalle span { margin-right: 14px; white-space: nowrap; }
+.tabla-lineas tr.detalle strong { color: var(--texto); }
+.tabla-lineas .acabado-propio { border-color: var(--naranja); background: var(--naranja-suave); }
+.tabla-lineas .composicion { font-size: 11.5px; color: var(--gris); margin-top: 3px; }
+.tabla-lineas .error-linea { font-size: 12px; color: var(--rojo); }
+.tabla-lineas .nada { color: #bbb; text-align: center; }
+.vacio-grande { color: var(--gris); font-style: italic; text-align: center; padding: 18px 0 8px; margin: 0; }
+.vacio-grande[hidden] { display: none; }
+.titulo-extras { margin: 18px 0 4px; font-size: 14px; color: var(--gris); }
+.tabla-extras td:first-child { width: 60%; }
+.tabla-extras input { width: 100%; }
+
+/* Resumen */
+.resumen .tarifa-actual { background: var(--naranja-suave); color: var(--naranja-osc); border-radius: 6px; padding: 6px 10px; font-weight: 600; margin-bottom: 8px; }
+
+/* PDF cliente: filas de grupo */
+.cli-tabla tr.cli-grupo td { background: none; color: var(--naranja-osc); font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; padding: 12px 10px 4px; border-bottom: 2px solid var(--naranja); }
