@@ -38,6 +38,7 @@ const App = (() => {
   // index_piezas.html: solo para introducir piezas, sin precios ni totales (lo que lleva la clase
   // «precio» se oculta con CSS; aquí solo se quitan los precios de los textos de los desplegables)
   const SIN_PRECIOS = !!window.SIN_PRECIOS;
+  const AVISO_SIN_CARPETA = 'Este navegador no puede guardar en la carpeta: el archivo se ha descargado en «Descargas». Abre la app con Chrome o Edge.';
   const conPrecio = (texto, precio) => SIN_PRECIOS ? texto : `${texto} (${dec(precio)} €)`;
 
   // ------------------------------------------------------------------ modelo
@@ -760,13 +761,14 @@ const App = (() => {
   async function guardar(nuevaVersion = false) {
     pres.resumen = { total: Math.round(res.total * 100) / 100 };
     if (!modoCarpeta) {
-      const base = Almacen.nombreBase(pres);
+      const base = Almacen.nombreBase(pres) + (SIN_PRECIOS ? Almacen.SUFIJO_TEMP : '');
       descargar(base + '.json', JSON.stringify(pres, null, 2), 'application/json');
       pres.planos.forEach((pl, i) => {
         const f = archivosPlanos.get(pl.id);
         if (f) descargar(Almacen.nombrePlano(base, pl, i), f, pl.tipo);
       });
       cambios = false; borrarBorrador(); pintarCabecera();
+      alert(AVISO_SIN_CARPETA);
       return true;
     }
     try {
@@ -779,10 +781,10 @@ const App = (() => {
         pintarPlanos();
       }
       const planos = archivos.filter(Boolean);
-      let r = await Almacen.guardar(pres, fechaArchivo, false, planos, nuevaVersion);
+      let r = await Almacen.guardar(pres, fechaArchivo, false, planos, nuevaVersion, SIN_PRECIOS);
       if (r.conflicto) {
         if (!confirm('Otro ordenador ha modificado este presupuesto desde que lo abriste.\n\n¿Sobrescribirlo con tu versión?')) return false;
-        r = await Almacen.guardar(pres, fechaArchivo, true, planos, nuevaVersion);
+        r = await Almacen.guardar(pres, fechaArchivo, true, planos, nuevaVersion, SIN_PRECIOS);
       }
       fechaArchivo = r.fecha;
       cambios = false; borrarBorrador(); pintarCabecera();
@@ -827,6 +829,7 @@ const App = (() => {
     if (!modoCarpeta) {
       const a = document.createElement('a');
       a.href = url; a.download = Imprimir.nombreArchivo(pres) + '.pdf'; a.click();
+      alert(AVISO_SIN_CARPETA);
       return;
     }
     try {
@@ -853,13 +856,14 @@ const App = (() => {
     $('#buscar').value = '';
     dialogo.showModal();
     try {
-      const items = await Almacen.listar();
+      // index_piezas.html solo abre sus «_temp», para no renombrar un presupuesto ya terminado
+      const items = (await Almacen.listar()).filter(it => !SIN_PRECIOS || it.temp);
       const pintar = filtro => {
         const f = Catalogo.normalizar(filtro);
         const vis = items.filter(it => !f || Catalogo.normalizar(`${it.numero} ${it.codigo} ${it.cliente} ${it.referencia} ${it.ruta.join(' ')}`).includes(f));
         lista.innerHTML = vis.length ? `<table class="tabla"><thead><tr><th>Número</th><th>Código</th><th>Cliente</th><th>Referencia</th><th>Fecha</th><th class="num precio">Total</th></tr></thead><tbody>
           ${vis.map(it => `<tr class="clicable" data-k="${items.indexOf(it)}">
-            <td>${esc(it.numero)}</td><td>${esc(it.codigo || it.ruta[0] || '')}</td><td>${esc(it.cliente)}</td><td>${esc(it.referencia)}</td>
+            <td>${esc(it.numero)}${it.temp && !SIN_PRECIOS ? ' <span class="etiqueta-temp" title="Guardado sin precios: al guardarlo aquí pierde el _temp">temp</span>' : ''}</td><td>${esc(it.codigo || it.ruta[0] || '')}</td><td>${esc(it.cliente)}</td><td>${esc(it.referencia)}</td>
             <td>${it.fecha ? new Date(it.fecha).toLocaleDateString('es-ES') : ''}</td>
             <td class="num precio">${it.total != null ? euros(it.total) : ''}</td></tr>`).join('')}</tbody></table>`
           : '<p>No hay presupuestos guardados' + (f ? ' que coincidan' : ' todavía') + '.</p>';
@@ -971,7 +975,10 @@ const App = (() => {
   function conectarEventos() {
     document.addEventListener('click', e => {
       const b = e.target.closest('[data-accion]');
-      if (b && acciones[b.dataset.accion]) { e.preventDefault(); acciones[b.dataset.accion](b); }
+      if (b && acciones[b.dataset.accion]) {
+        e.preventDefault();
+        Promise.resolve().then(() => acciones[b.dataset.accion](b)).catch(mostrarError);
+      }
     });
     document.addEventListener('input', e => {
       const el = e.target;
@@ -1057,6 +1064,10 @@ const App = (() => {
   function arrancarApp() {
     $('#inicio').hidden = true;
     $('#app').hidden = false;
+    if (!modoCarpeta) {
+      $('#aviso-precios').insertAdjacentHTML('beforebegin',
+        `<div class="aviso aviso-error">⚠ ${AVISO_SIN_CARPETA.replace('el archivo se ha descargado', 'lo que guardes se descarga')}</div>`);
+    }
     let borrador = null;
     try { borrador = JSON.parse(localStorage.getItem(CLAVE_BORRADOR) || 'null'); } catch (e) { /* nada */ }
     if (borrador?.pres && confirm(`Hay un presupuesto sin guardar de la última vez${borrador.pres.cliente?.nombre ? ` (${borrador.pres.cliente.nombre})` : ''}.\n\n¿Recuperarlo?`)) {
@@ -1108,6 +1119,15 @@ const App = (() => {
       catch (err) { $('#inicio-error').textContent = err.message; }
     };
   }
+
+  // Cualquier fallo inesperado se enseña en pantalla en vez de quedarse en silencio
+  function mostrarError(e) {
+    const msg = e?.message || e?.reason?.message || String(e?.reason || e);
+    console.error(e);
+    alert('Ha ocurrido un error:\n\n' + msg + '\n\nHaz una captura de este mensaje para revisarlo.');
+  }
+  window.addEventListener('unhandledrejection', e => mostrarError(e.reason));
+  window.addEventListener('error', e => mostrarError(e.error || e.message));
 
   async function iniciar() {
     conectarEventos();

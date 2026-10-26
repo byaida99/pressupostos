@@ -6,8 +6,10 @@ App para hacer presupuestos de mobiliario a medida. Funciona abriendo `index.htm
 
 ```
 CARPETA COMPARTIDA/
-  0_PROGRAMA/          ← esta app (index.html, catalogo.xlsx, LOGO.JPG…)
-  1_PRESSUPOSTOS/
+  00_PROGRAMA/             ← esta app (index.html, catalogo.xlsx, LOGO.JPG…)
+    Presupuestos.bat       ← abre la app en su propia ventana de Edge
+    Piezas sin precios.bat ← abre index_piezas.html igual
+  01_PENDENTS_ACCEPTACIO/
     1234/              ← un cliente con código (vale también «1234 - Nombre»)
       1234_Cocina_20261024.json
       1234_Cocina_20261024.pdf
@@ -26,7 +28,7 @@ Los archivos se llaman **códigocliente_Referencia_fecha** (sin código: 1000; s
 | Archivo | Para qué sirve |
 | --- | --- |
 | `index.html` | La app. Se abre con doble clic. |
-| `index_piezas.html` | La misma app **sin precios ni totales**, para introducir piezas, herrajes y planos. Guarda en la misma carpeta del NAS y con el mismo nombre; el presupuesto se abre después en `index.html` con «Abrir» para completar precios y sacar el PDF. Sin NAS, el `.json` descargado se carga en `index.html` con **⋯ → Importar presupuesto (.json)**. |
+| `index_piezas.html` | La misma app **sin precios ni totales**, para introducir piezas, herrajes y planos. Guarda en la misma carpeta del NAS y con el mismo nombre más «_temp» (`1234_Cocina_20261024_temp.json`); el presupuesto se abre después en `index.html` con «Abrir» para completar precios y sacar el PDF: al guardarlo allí pierde el «_temp». `index_piezas.html` solo abre presupuestos «_temp». Sin NAS, el `.json` descargado se carga en `index.html` con **⋯ → Importar presupuesto (.json)**. |
 | `catalogo.xlsx` | Precios: tableros, cantos, acabados, herrajes, extras, recargo y parámetros. **Se edita con Excel.** |
 | `plantilla_presupuesto.xlsx` | Plantilla para preparar un presupuesto en Excel e importarlo. |
 | `LOGO.JPG` | Logo que sale en el PDF del cliente (el nombre se cambia en el catálogo, pestaña Parámetros). |
@@ -34,7 +36,8 @@ Los archivos se llaman **códigocliente_Referencia_fecha** (sin código: 1000; s
 
 ## Uso
 
-1. La primera vez en cada ordenador, la app pide elegir la carpeta del NAS que contiene `0_PROGRAMA` y `1_PRESSUPOSTOS`. Después solo hay que pulsar «Conectar» al abrirla.
+1. La primera vez en cada ordenador, la app pide elegir la carpeta del NAS que contiene `00_PROGRAMA` y `01_PENDENTS_ACCEPTACIO`. Al pedir permiso, elegir «Permitir en cada visita» para que no vuelva a preguntar.
+   - Para abrirla como una aplicación, usar `Presupuestos.bat` (o un acceso directo en el escritorio a ese archivo).
 2. **Guardar** (o Ctrl+S) guarda el `.json` como `códigocliente_Referencia_fecha` en la carpeta del cliente según su **código**. Si la carpeta no existe, se crea. Sin código (o con 1000) va a `1000/Nombre - Teléfono`. El presupuesto lleva además un número interno (`2026-001`…) que sale en el PDF.
    - Si ya hay **otro** presupuesto con ese nombre, no se sobrescribe: se guarda como `…_V2`, `…_V3`… Volver a guardar el presupuesto abierto sí actualiza su propio archivo.
    - Si luego se cambia el código, la referencia o la fecha, el presupuesto, su PDF y sus planos se mueven o renombran solos.

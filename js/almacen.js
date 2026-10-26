@@ -1,15 +1,19 @@
 // almacen.js
 // Lectura y escritura en la carpeta del NAS (Chrome / Edge).
 // Estructura de la carpeta elegida:
-//   0_PROGRAMA/index.html, catalogo.xlsx, LOGO.JPG…
-//   1_PRESSUPOSTOS/1234/1234_Cocina_20261024.json  (+ .pdf y _plano1.pdf… con el mismo nombre)
-//   1_PRESSUPOSTOS/1000/Cliente - 600000000/1000_Armario_20261025.json   (clientes sin código)
+//   00_PROGRAMA/index.html, catalogo.xlsx, LOGO.JPG…
+//   01_PENDENTS_ACCEPTACIO/1234/1234_Cocina_20261024.json  (+ .pdf y _plano1.pdf… con el mismo nombre)
+//   01_PENDENTS_ACCEPTACIO/1000/Cliente - 600000000/1000_Armario_20261025.json   (clientes sin código)
 // Si ya existe otro presupuesto con el mismo nombre, se guarda como …_V2, …_V3…
+// Lo guardado desde index_piezas.html (sin precios) acaba en «_temp»: 1234_Cocina_20261024_temp.json.
+// Al guardarlo después desde index.html pierde el «_temp».
 
 const Almacen = (() => {
   const ARCHIVO_CATALOGO = 'catalogo.xlsx';
-  const PROGRAMA = '0_PROGRAMA';
-  const PRESUPUESTOS = '1_PRESSUPOSTOS';
+  const PROGRAMA = '00_PROGRAMA';
+  const PRESUPUESTOS = '01_PENDENTS_ACCEPTACIO';
+  const SUFIJO_TEMP = '_temp';
+  const ES_TEMP = /_temp$/i;
   const SIN_CODIGO = '1000';
   const ES_JSON = /\.json$/i;
   const soportado = typeof window.showDirectoryPicker === 'function';
@@ -70,7 +74,7 @@ const Almacen = (() => {
     return { buffer: await f.arrayBuffer(), fecha: f.lastModified };
   }
 
-  // Devuelve un archivo de 0_PROGRAMA (el logo) como data URL, o '' si no existe
+  // Devuelve un archivo de 00_PROGRAMA (el logo) como data URL, o '' si no existe
   async function leerComoDataUrl(nombre) {
     try {
       const f = await (await (await carpetaPrograma()).getFileHandle(nombre)).getFile();
@@ -94,10 +98,9 @@ const Almacen = (() => {
       .replace(/[^\w .,&()'-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60);
   }
 
-  // 1_PRESSUPOSTOS (acepta otra grafía, como 1_PRESUPOSTOS, si ya existe así)
   async function carpetaPresupuestos(crear) {
     for await (const [nombre, h] of raiz.entries()) {
-      if (h.kind === 'directory' && /^1_PRES/i.test(nombre)) return h;
+      if (h.kind === 'directory' && nombre.toUpperCase() === PRESUPUESTOS) return h;
     }
     return raiz.getDirectoryHandle(PRESUPUESTOS, { create: crear });
   }
@@ -128,7 +131,7 @@ const Almacen = (() => {
     return dir;
   }
 
-  // Recorre 1_PRESSUPOSTOS hasta 3 niveles y llama a fn(datos, ruta, nombre) por cada presupuesto .json
+  // Recorre 01_PENDENTS_ACCEPTACIO hasta 3 niveles y llama a fn(datos, ruta, nombre) por cada presupuesto .json
   async function recorrer(fn) {
     let base;
     try { base = await carpetaPresupuestos(false); } catch (e) { return; }
@@ -151,7 +154,7 @@ const Almacen = (() => {
       lista.push({
         numero: d.numero || '', cliente: d.cliente?.nombre || '', codigo: d.cliente?.codigo || '',
         referencia: d.referencia || '', fecha: d.fecha || '', total: d.resumen?.total ?? null,
-        ruta, base: nombre.replace(ES_JSON, '')
+        ruta, base: nombre.replace(ES_JSON, ''), temp: ES_TEMP.test(nombre.replace(ES_JSON, ''))
       });
     });
     lista.sort((a, b) => String(b.numero).localeCompare(String(a.numero)));
@@ -188,12 +191,23 @@ const Almacen = (() => {
   }
 
   // Nombre libre en la carpeta: el deseado, o _V2, _V3… si ya lo usa otro presupuesto.
-  // Si este presupuesto ya está guardado con ese nombre (o una de sus versiones), lo conserva.
-  async function nombreLibre(dir, ruta, deseado, antes) {
-    if (antes && mismaCarpeta(antes, { ruta }) && new RegExp(`^${escRegex(deseado)}(_V\\d+)?$`).test(antes.base)) return antes.base;
+  // Si este presupuesto ya está guardado con ese nombre (o una de sus versiones), lo conserva,
+  // poniendo o quitando el «_temp» según desde qué versión de la app se guarda.
+  async function nombreLibre(dir, ruta, deseado, antes, temp) {
+    const sufijo = temp ? SUFIJO_TEMP : '';
+    const m = antes && mismaCarpeta(antes, { ruta }) && antes.base.match(new RegExp(`^${escRegex(deseado)}(_V\\d+)?(_temp)?$`, 'i'));
+    if (m) {
+      const base = deseado + (m[1] || '') + sufijo;
+      if (base === antes.base || !(await archivoSiExiste(dir, base + '.json'))) return base;
+    }
+    // Un nombre está ocupado si existe con o sin «_temp», así al terminarlo no choca con otro
+    const ocupado = async b => {
+      for (const n of [b + '.json', b + '.pdf', b + SUFIJO_TEMP + '.json']) if (await archivoSiExiste(dir, n)) return true;
+      return false;
+    };
     for (let v = 1; ; v++) {
       const base = v === 1 ? deseado : `${deseado}_V${v}`;
-      if (!(await archivoSiExiste(dir, base + '.json')) && !(await archivoSiExiste(dir, base + '.pdf'))) return base;
+      if (!(await ocupado(base))) return base + sufijo;
     }
   }
 
@@ -212,7 +226,8 @@ const Almacen = (() => {
   // `planos` son los archivos de pres.planos (mismo orden); se guarda una copia junto al .json.
   // Con `nuevaVersion` se guarda con un nombre libre (…_V2, …_V3) sin tocar los archivos anteriores,
   // que se quedan como la versión ya enviada al cliente.
-  async function guardar(pres, fechaAbierto, forzar = false, planos = [], nuevaVersion = false) {
+  // Con `temp` (index_piezas.html) el nombre acaba en «_temp».
+  async function guardar(pres, fechaAbierto, forzar = false, planos = [], nuevaVersion = false, temp = false) {
     if (!pres.numero) pres.numero = await siguienteNumero(new Date().getFullYear());
     let antes = pres.ubicacion || null;
     let dirAntes = null;
@@ -226,7 +241,7 @@ const Almacen = (() => {
     if (nuevaVersion) { antes = null; dirAntes = null; }
 
     const { dir, ruta } = await rutaCliente(pres, true);
-    const ahora = { ruta, base: await nombreLibre(dir, ruta, nombreBase(pres), antes) };
+    const ahora = { ruta, base: await nombreLibre(dir, ruta, nombreBase(pres), antes, temp) };
     pres.ubicacion = ahora;
 
     // Planos: se escriben los nuevos o los que cambian de nombre; los que sobran se borran
@@ -295,6 +310,6 @@ const Almacen = (() => {
   return {
     soportado, recuperarCarpeta, pedirPermiso, elegirCarpeta, nombreCarpeta,
     leerCatalogo, leerComoDataUrl, listar, guardar, guardarPdf, tienePdf, leerPlano, abrir, nombreBase, nombrePlano,
-    ARCHIVO_CATALOGO, PROGRAMA, PRESUPUESTOS, SIN_CODIGO
+    ARCHIVO_CATALOGO, PROGRAMA, PRESUPUESTOS, SIN_CODIGO, SUFIJO_TEMP
   };
 })();
