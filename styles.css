@@ -308,3 +308,4 @@ button:disabled { opacity: .35; cursor: default; border-color: var(--borde); }
 .sin-precios .barra { border-bottom-color: #4a7fb0; }
 .aviso-temp { background: #eaf2fa; border: 1px solid #b9d2ea; color: #2c5578; border-radius: 6px; padding: 8px 10px; font-size: 13px; margin: 0 0 10px; }
 .etiqueta-temp { display: inline-block; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; background: #eaf2fa; color: #2c5578; border: 1px solid #b9d2ea; border-radius: 10px; padding: 0 6px; margin-left: 4px; }
+.aviso-error { background: #fdecea; border-color: #f5b5ae; color: #8a1c12; font-weight: 600; }

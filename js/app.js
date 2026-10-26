@@ -8,6 +8,7 @@ const App = (() => {
   // index_sin_precios.html abre esta misma app con ?sin-precios: no muestra ningún
   // importe y guarda con «_temp» para terminarlo luego con index.html
   const SIN_PRECIOS = Catalogo.sinPrecios;
+  const AVISO_SIN_CARPETA = 'Este navegador no puede guardar en la carpeta: el archivo se ha descargado en «Descargas». Abre la app con Chrome o Edge.';
   const CLAVE_BORRADOR = 'presupuesto-borrador-v4' + (SIN_PRECIOS ? '-temp' : '');
 
   let catActual = null;      // catálogo leído ahora del Excel
@@ -599,6 +600,7 @@ const App = (() => {
       descargar(`${pres.numero || 'presupuesto'} ${pres.cliente.nombre || ''}`.trim() + (SIN_PRECIOS ? Almacen.SUFIJO_TEMP : '') + '.json',
         JSON.stringify(pres, null, 2), 'application/json');
       cambios = false; borrarBorrador(); pintarCabecera();
+      alert(AVISO_SIN_CARPETA);
       return true;
     }
     try {
@@ -637,6 +639,7 @@ const App = (() => {
     if (!modoCarpeta) {
       const a = document.createElement('a');
       a.href = url; a.download = Imprimir.nombreArchivo(pres) + '.pdf'; a.click();
+      alert(AVISO_SIN_CARPETA);
       return;
     }
     try {
@@ -854,6 +857,10 @@ const App = (() => {
   function arrancarApp() {
     $('#inicio').hidden = true;
     $('#app').hidden = false;
+    if (!modoCarpeta) {
+      const aviso = $('#aviso-precios');
+      aviso.insertAdjacentHTML('beforebegin', `<div class="aviso aviso-error">⚠ ${AVISO_SIN_CARPETA.replace('el archivo se ha descargado', 'lo que guardes se descarga')}</div>`);
+    }
     let borrador = null;
     try { borrador = JSON.parse(localStorage.getItem(CLAVE_BORRADOR) || 'null'); } catch (e) { /* nada */ }
     if (borrador?.pres && confirm(`Hay un presupuesto sin guardar de la última vez${borrador.pres.cliente?.nombre ? ` (${borrador.pres.cliente.nombre})` : ''}.\n\n¿Recuperarlo?`)) {
