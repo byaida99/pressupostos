@@ -197,9 +197,12 @@ const Catalogo = (() => {
   // En index_piezas.html (window.SIN_PRECIOS) no se muestra el precio
   const textoTablero = t => `${t.codigo ? t.codigo + ' ' : ''}${t.acabado} · ${t.grosor} mm` +
     (typeof window !== 'undefined' && window.SIN_PRECIOS ? '' : ` (${t.precioM2.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €/m²)`);
+  // Solo el grueso (y el precio), para el desplegable que va después del acabado
+  const textoGrosor = t => `${t.grosor} mm` +
+    (typeof window !== 'undefined' && window.SIN_PRECIOS ? '' : ` (${t.precioM2.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €/m²)`);
 
   return {
     SIN_ACABADO, normalizar, numero, leerCantos, desdeArchivo, mismosPrecios, piezas, cantosPieza,
-    familia, tablerosDe, tablero, acabadosDe, textoTablero, herrajes, categoriasHerraje, herraje
+    familia, tablerosDe, tablero, acabadosDe, textoTablero, textoGrosor, herrajes, categoriasHerraje, herraje
   };
 })();

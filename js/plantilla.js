@@ -30,6 +30,7 @@ const Plantilla = (() => {
       ['2. En «Piezas» pon una fila por pieza. Todas las filas con el mismo nombre en la columna Mueble van al mismo mueble.'],
       ['3. En «Herrajes» pon las bisagras, cajones… de cada mueble, y en «Extras» el resto de accesorios.'],
       ['4. En la app: ⋯ → Importar plantilla Excel.'],
+      ['5. En «Datos», «Valorado» y «No Valorado»: una línea por concepto; salen en los PDF.'],
       [''],
       ['Columnas de «Piezas»:'],
       ['• Material: código o nombre de la familia (MEL, Melamina, MDF…). Mira la pestaña «Materiales».'],
@@ -50,6 +51,8 @@ const Plantilla = (() => {
       ['Contacto', ''],
       ['Referencia', ''],
       ['Descripción', ''],
+      ['Valorado (una línea por concepto)', ''],
+      ['No Valorado (una línea por concepto)', ''],
       ['Descuento carpintero (Sí / No)', 'No']
     ], [32, 60]), 'Datos');
 
@@ -121,7 +124,7 @@ const Plantilla = (() => {
   function leer(buffer, cat) {
     const libro = XLSX.read(buffer, { type: 'array' });
     const errores = [];
-    const r = { cliente: { codigo: '', nombre: '', contacto: '' }, referencia: '', descripcion: '', descuento: null, muebles: [], errores };
+    const r = { cliente: { codigo: '', nombre: '', contacto: '' }, referencia: '', descripcion: '', valorado: '', noValorado: '', descuento: null, muebles: [], errores };
 
     (filasDe(libro, 'Datos') || []).forEach(f => {
       const campo = norm(f.col('campo')), valor = String(f.col('valor') ?? '').trim();
@@ -130,6 +133,8 @@ const Plantilla = (() => {
       else if (campo.startsWith('contacto')) r.cliente.contacto = valor;
       else if (campo.startsWith('referencia')) r.referencia = valor;
       else if (campo.startsWith('descripcion')) r.descripcion = valor;
+      else if (campo.startsWith('valorado')) r.valorado = valor;
+      else if (campo.startsWith('no valorado')) r.noValorado = valor;
       else if (campo.startsWith('descuento')) r.descuento = siNo(valor);
     });
 

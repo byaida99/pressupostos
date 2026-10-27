@@ -63,6 +63,22 @@
             <label class="ancho-total">Descripción (sale en el PDF del cliente)
               <textarea data-bind="descripcion" rows="3" placeholder="Ej: Muebles de cocina a medida en melamina blanco mate."></textarea>
             </label>
+            <div class="campo-lista-proyecto">
+              <strong>Valorado</strong>
+              <div id="lista-valorado" class="lista-conceptos"></div>
+              <div class="anadir-concepto">
+                <input type="text" data-proyecto-nuevo="valorado" placeholder="Añadir concepto">
+                <button type="button" class="mini" data-accion="anadir-concepto-proyecto" data-lista="valorado">Añadir</button>
+              </div>
+            </div>
+            <div class="campo-lista-proyecto">
+              <strong>No Valorado</strong>
+              <div id="lista-no-valorado" class="lista-conceptos"></div>
+              <div class="anadir-concepto">
+                <input type="text" data-proyecto-nuevo="noValorado" placeholder="Añadir concepto">
+                <button type="button" class="mini" data-accion="anadir-concepto-proyecto" data-lista="noValorado">Añadir</button>
+              </div>
+            </div>
             <div class="ancho-total planos">
               <span class="planos-titulo">Planos <small>(se añaden al final del PDF del cliente y se guarda una copia junto al presupuesto)</small></span>
               <div id="planos-lista"></div>

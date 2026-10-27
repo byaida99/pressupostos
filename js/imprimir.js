@@ -5,7 +5,31 @@ const Imprimir = (() => {
   const euros = n => (n || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
   const dec = (n, d = 2) => (n || 0).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d });
   const esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const empresaHtml = t => esc(t).replace(/\r?\n/g, '<br>');
+  const pieEmpresa = p => p.empresa ? `<div class="pdf-empresa-pie">${empresaHtml(p.empresa)}</div>` : '';
+  const lineasPieEmpresa = p => String(p.empresa || '').split(/\r?\n/).map(t => t.trim()).filter(Boolean);
   const fecha = f => f ? new Date(f).toLocaleDateString('es-ES') : '';
+
+  function lineasPieCliente(pres, p) {
+    const validez = p.validezDias && pres.fecha
+      ? `Presupuesto válido durante ${dec(p.validezDias, 0)} días desde la fecha de emisión.`
+      : '';
+    return [validez, p.textoPie, ...lineasPieEmpresa(p)].map(t => String(t || '').trim()).filter(Boolean);
+  }
+
+  function listaProyecto(titulo, contenido) {
+    const elementos = String(contenido || '').split(/\r?\n/).map(t => t.trim()).filter(Boolean);
+    if (!elementos.length) return '';
+    return `<section class="cli-lista-proyecto"><h3>${titulo}</h3><ul>${elementos.map(t => `<li>${esc(t)}</li>`).join('')}</ul></section>`;
+  }
+
+  function listasProyecto(pres, clase) {
+    if (![pres.valorado, pres.noValorado].some(t => String(t || '').trim())) return '';
+    return `<div class="${clase}">
+      ${listaProyecto('Valorado', pres.valorado)}
+      ${listaProyecto('No Valorado', pres.noValorado)}
+    </div>`;
+  }
 
   function imprimir(html, titulo) {
     const cont = document.getElementById('impresion');
@@ -32,7 +56,6 @@ const Imprimir = (() => {
     return `
       <div class="pdf-cabecera">
         ${p.logo ? `<img src="${esc(p.logo)}" alt="" class="pdf-logo">` : ''}
-        ${p.empresa ? `<div class="pdf-empresa">${esc(p.empresa)}</div>` : ''}
       </div>
       <h1 class="pdf-titulo">${titulo}</h1>
       <table class="pdf-datos">
@@ -40,7 +63,8 @@ const Imprimir = (() => {
         <tr><th>Cliente</th><td>${esc(pres.cliente.nombre || '—')}</td><th>Contacto</th><td>${esc(pres.cliente.contacto || '—')}</td></tr>
         <tr><th>Referencia</th><td colspan="3">${esc(pres.referencia || '—')}</td></tr>
       </table>
-      ${pres.descripcion ? `<div class="pdf-descripcion"><strong>Descripción</strong><br>${esc(pres.descripcion).replace(/\n/g, '<br>')}</div>` : ''}`;
+      ${pres.descripcion ? `<div class="pdf-descripcion"><strong>Descripción</strong><br>${esc(pres.descripcion).replace(/\n/g, '<br>')}</div>` : ''}
+      ${listasProyecto(pres, 'pdf-listas-proyecto')}`;
   }
 
   // Mismo nombre que el .json guardado (códigocliente_Referencia_fecha, con _V2… si lo tiene)
@@ -70,7 +94,6 @@ const Imprimir = (() => {
 
   function htmlCliente(pres, res, cat) {
     const p = cat.parametros;
-    const validez = p.validezDias ? `${dec(p.validezDias, 0)} días` : '';
     const vence = p.validezDias && pres.fecha
       ? new Date(new Date(pres.fecha).getTime() + p.validezDias * 864e5).toLocaleDateString('es-ES') : '';
 
@@ -97,12 +120,13 @@ const Imprimir = (() => {
 
     const pagoIni = res.pagoInicial, pagoFin = res.totalConIva - res.pagoInicial;
     const pctIni = dec(res.pagoInicialPct, 0), pctFin = dec(100 - res.pagoInicialPct, 0);
+    const codigoCliente = String(pres.cliente.codigo || '').trim() || '1000';
+    const referenciaIngreso = [codigoCliente, String(pres.referencia || '').trim()].filter(Boolean).join('_');
 
     const html = `<div class="pdf cli">
       <header class="cli-cabecera">
         <div class="cli-marca">
           ${p.logo ? `<img src="${esc(p.logo)}" alt="" class="cli-logo">` : ''}
-          ${p.empresa ? `<div class="cli-empresa">${esc(p.empresa)}</div>` : ''}
         </div>
         <div class="cli-doc">
           <div class="cli-titulo">PRESUPUESTO</div>
@@ -123,23 +147,14 @@ const Imprimir = (() => {
         ${pres.referencia ? `<div><div class="cli-rotulo">Proyecto</div><div class="cli-valor">${esc(pres.referencia)}</div></div>` : ''}
       </section>
       ${pres.descripcion ? `<p class="cli-descripcion">${esc(pres.descripcion).replace(/\n/g, '<br>')}</p>` : ''}
+      ${listasProyecto(pres, 'cli-listas-proyecto')}
 
       <table class="cli-tabla">
         <thead><tr><th class="cli-n">#</th><th>Descripción</th><th class="num">Importe</th></tr></thead>
         <tbody>${filas}</tbody>
       </table>
-      ${res.descuento > 0 ? `<p class="cli-descuento">✓ Los precios incluyen un descuento de ${euros(res.descuento)}.</p>` : ''}
 
       <div class="cli-final">
-        <section class="cli-condiciones">
-          <h3>Condiciones de aceptación</h3>
-          <div class="cli-paso"><span class="cli-paso-n">1</span>
-            <div><strong>Inicio del proyecto · ${pctIni} %</strong><br>Para empezar el trabajo se abona el ${pctIni} % del total:
-              <span class="cli-resalte">${euros(pagoIni)}</span></div></div>
-          <div class="cli-paso"><span class="cli-paso-n">2</span>
-            <div><strong>Entrega · ${pctFin} %</strong><br>El ${pctFin} % restante, <strong>${euros(pagoFin)}</strong>, se liquida a la entrega del material.</div></div>
-          ${p.iban ? `<div class="cli-iban"><span>Número de cuenta para el ingreso</span><code>${esc(p.iban)}</code></div>` : ''}
-        </section>
         <section class="cli-totales">
           <div class="cli-linea"><span>Base imponible</span><span>${euros(res.total)}</span></div>
           <div class="cli-linea"><span>IVA (${dec(p.ivaPct, 0)} %)</span><span>${euros(res.iva)}</span></div>
@@ -147,11 +162,22 @@ const Imprimir = (() => {
           ${res.acabadoTotal > 0 ? `<p class="cli-nota">El total incluye el acabado superficial opcional. Sin él: ${euros(res.subtotal * (1 + (p.ivaPct || 0) / 100))} IVA incluido.</p>` : ''}
         </section>
       </div>
+      <section class="cli-condiciones">
+        <h3>Condiciones de aceptación</h3>
+        <div class="cli-paso"><span class="cli-paso-n">1</span>
+          <div><strong>Inicio del proyecto · ${pctIni} %</strong><br>Para empezar el trabajo se abona el ${pctIni} % del total:
+            <span class="cli-resalte">${euros(pagoIni)}</span></div></div>
+        <div class="cli-paso"><span class="cli-paso-n">2</span>
+          <div><strong>Entrega · ${pctFin} %</strong><br>El ${pctFin} % restante, <strong>${euros(pagoFin)}</strong>, se liquida a la entrega del material.</div></div>
+        <div class="cli-ingreso">
+          ${p.iban ? `<div class="cli-iban"><span>Número de cuenta para el ingreso</span><code>${esc(p.iban)}</code></div>` : ''}
+          <div class="cli-iban"><span>Referencia para el ingreso</span><code>${esc(referenciaIngreso)}</code></div>
+        </div>
+      </section>
 
-      <footer class="cli-pie">
-        ${validez ? `Presupuesto válido durante ${validez} desde la fecha de emisión.` : ''}
-        ${p.textoPie ? `<br>${esc(p.textoPie)}` : ''}
-      </footer>
+        <footer class="cli-pie">
+          ${lineasPieCliente(pres, p).map(esc).join('<br>')}
+        </footer>
     </div>`;
     return html;
   }
@@ -171,14 +197,21 @@ const Imprimir = (() => {
     try {
       await Promise.all([...cont.querySelectorAll('img')].map(img => img.complete ? null
         : new Promise(ok => { img.onload = ok; img.onerror = () => { img.remove(); ok(); }; })));
+      cont.querySelector('.cli-pie')?.remove();
       const arriba = cont.getBoundingClientRect().top;
       const cortes = [...cont.querySelectorAll('.cli > *, .cli-tabla thead, .cli-tabla tbody tr')]
         .map(el => el.getBoundingClientRect().bottom - arriba).sort((a, b) => a - b);
       const lienzo = await html2canvas(cont, { scale: ESCALA, backgroundColor: '#ffffff', logging: false });
-      const altoPagina = ALTO_MM * ANCHO_PX / ANCHO_MM;
-      const total = lienzo.height / ESCALA;
       const doc = new jspdf.jsPDF({ unit: 'mm', format: 'a4' });
       doc.setProperties({ title: nombreArchivo(pres) });
+      doc.setFontSize(7);
+      doc.setTextColor(150);
+      const lineasPie = lineasPieCliente(pres, cat.parametros)
+        .flatMap(linea => doc.splitTextToSize(linea, ANCHO_MM));
+      const reservaPieMm = Math.max(20, 5 + lineasPie.length * 3);
+      const altoPagina = (ALTO_MM - reservaPieMm) * ANCHO_PX / ANCHO_MM;
+      const total = lienzo.height / ESCALA;
+      const pieY = 297 - MARGEN - Math.max(0, lineasPie.length - 1) * 3;
       for (let inicio = 0, pagina = 0; inicio < total - 1; pagina++) {
         let fin = Math.min(total, inicio + altoPagina);
         if (fin < total) {
@@ -191,6 +224,12 @@ const Imprimir = (() => {
         trozo.getContext('2d').drawImage(lienzo, 0, -Math.floor(inicio * ESCALA));
         if (pagina) doc.addPage();
         doc.addImage(trozo.toDataURL('image/jpeg', 0.92), 'JPEG', MARGEN, MARGEN, ANCHO_MM, (fin - inicio) * ANCHO_MM / ANCHO_PX);
+        if (lineasPie.length) {
+          doc.setDrawColor(225);
+          const separadorY = 297 - MARGEN - lineasPie.length * 3 - 1;
+          doc.line(MARGEN, separadorY, 210 - MARGEN, separadorY);
+          doc.text(lineasPie, MARGEN, pieY, { lineHeightFactor: 1.2 });
+        }
         inicio = fin;
       }
       return doc.output('blob');
@@ -300,7 +339,7 @@ const Imprimir = (() => {
       <tr class="pdf-total"><td>TOTAL (IVA incluido)</td><td class="num">${euros(res.totalConIva)}</td></tr>
       <tr><td>Pago inicial (${dec(res.pagoInicialPct, 0)} %)</td><td class="num">${euros(res.pagoInicial)}</td></tr>
     </table>
-    <p class="pdf-pie">Precios del catálogo del ${fecha(cat.fecha)}. Los conceptos tachados no se cobran.</p></div>`;
+    <footer class="pdf-pie">Precios del catálogo del ${fecha(cat.fecha)}. Los conceptos tachados no se cobran.${pieEmpresa(p)}</footer></div>`;
     imprimir(html, nombreArchivo(pres, 'detalle'));
   }
 

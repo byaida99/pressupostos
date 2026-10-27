@@ -31,7 +31,7 @@ Los archivos se llaman **códigocliente_Referencia_fecha** (sin código: 1000; s
 | `index_piezas.html` | La misma app **sin precios ni totales**, para introducir piezas, herrajes y planos. Guarda en la misma carpeta del NAS y con el mismo nombre más «_temp» (`1234_Cocina_20261024_temp.json`); el presupuesto se abre después en `index.html` con «Abrir» para completar precios y sacar el PDF: al guardarlo allí pierde el «_temp». `index_piezas.html` solo abre presupuestos «_temp». Sin NAS, el `.json` descargado se carga en `index.html` con **⋯ → Importar presupuesto (.json)**. |
 | `catalogo.xlsx` | Precios: tableros, cantos, acabados, herrajes, extras, recargo y parámetros. **Se edita con Excel.** |
 | `plantilla_presupuesto.xlsx` | Plantilla para preparar un presupuesto en Excel e importarlo. |
-| `LOGO.JPG` | Logo que sale en el PDF del cliente (el nombre se cambia en el catálogo, pestaña Parámetros). |
+| `LOGO.JPG` | Logo que sale en los PDF de cliente e interno. La empresa y sus datos de contacto también aparecen en los PDF; se configuran en `catalogo.xlsx`, pestaña Parámetros. |
 | `js/`, `lib/`, `styles.css` | Código de la app. No hace falta tocarlos. `lib/` lleva SheetJS, html2canvas, jsPDF y pdf-lib para funcionar sin internet. |
 
 ## Uso
@@ -50,7 +50,7 @@ Los archivos se llaman **códigocliente_Referencia_fecha** (sin código: 1000; s
    - **Herrajes**: se elige el tipo (Bisagras, Cajones, Colgadores…) y después el modelo, con la cantidad.
    - **Extras**: el resto de accesorios y trabajos por unidad.
 8. La casilla **Incluir** de cada mueble lo quita del presupuesto (no suma ni sale en el PDF) sin borrarlo.
-9. El PDF del cliente termina con el resumen (base imponible, IVA y total) y las condiciones de pago: el porcentaje inicial y el número de cuenta se cambian en `catalogo.xlsx`, pestaña Parámetros.
+9. El PDF del cliente muestra el resumen enmarcado a la derecha y, debajo, las condiciones de pago, con el IBAN y la referencia para el ingreso (`código cliente_referencia del proyecto`) en la misma fila. Los datos de la empresa aparecen discretamente en el pie de cada página. En «Cliente y proyecto», los conceptos se marcan en las listas «Valorado» o «No Valorado»; un concepto no puede estar marcado en ambas, y se pueden añadir conceptos nuevos. Las listas también aparecen en los PDF y se pueden rellenar en la pestaña «Datos» de la plantilla Excel.
 
 ## Plantilla Excel
 

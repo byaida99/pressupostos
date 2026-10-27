@@ -5,6 +5,7 @@
 
 const App = (() => {
   const SIN = Catalogo.SIN_ACABADO;
+  const CONCEPTOS_PROYECTO = ['Material', 'Corte', 'Mecanización', 'Canteado', 'Montaje', 'Lijado', 'Lacado', 'Barnizado'];
   // index_piezas.html guarda su borrador aparte
   const CLAVE_BORRADOR = 'presupuesto-borrador-v4' + (window.SIN_PRECIOS ? '-piezas' : '');
 
@@ -40,6 +41,47 @@ const App = (() => {
   const SIN_PRECIOS = !!window.SIN_PRECIOS;
   const AVISO_SIN_CARPETA = 'Este navegador no puede guardar en la carpeta: el archivo se ha descargado en «Descargas». Abre la app con Chrome o Edge.';
   const conPrecio = (texto, precio) => SIN_PRECIOS ? texto : `${texto} (${dec(precio)} €)`;
+  const listaConceptos = valor => (Array.isArray(valor) ? valor : String(valor || '').split(/\r?\n/))
+    .map(t => String(t).trim()).filter(Boolean);
+  const claveConcepto = texto => Catalogo.normalizar(texto);
+
+  function prepararListasProyecto(p) {
+    p.conceptosProyecto = listaConceptos(p.conceptosProyecto);
+    p.valorado = listaConceptos(p.valorado).join('\n');
+    p.noValorado = listaConceptos(p.noValorado).join('\n');
+    [...listaConceptos(p.valorado), ...listaConceptos(p.noValorado)].forEach(concepto => {
+      if (!CONCEPTOS_PROYECTO.some(x => claveConcepto(x) === claveConcepto(concepto))
+        && !p.conceptosProyecto.some(x => claveConcepto(x) === claveConcepto(concepto))) p.conceptosProyecto.push(concepto);
+    });
+  }
+
+  function pintarListasProyecto() {
+    if (!pres) return;
+    const conceptos = [...CONCEPTOS_PROYECTO, ...pres.conceptosProyecto];
+    const extras = [...listaConceptos(pres.valorado), ...listaConceptos(pres.noValorado)];
+    extras.forEach(concepto => {
+      if (!conceptos.some(x => claveConcepto(x) === claveConcepto(concepto))) conceptos.push(concepto);
+    });
+    const unicos = conceptos.filter((concepto, i) => conceptos.findIndex(x => claveConcepto(x) === claveConcepto(concepto)) === i);
+    [['valorado', '#lista-valorado'], ['noValorado', '#lista-no-valorado']].forEach(([lista, selector]) => {
+      const el = $(selector);
+      if (!el) return;
+      const elegidos = listaConceptos(pres[lista]);
+      el.innerHTML = unicos.map(concepto => `<label class="concepto-checkbox">
+        <input type="checkbox" data-proyecto-lista="${lista}" data-concepto="${esc(concepto)}"${elegidos.some(x => claveConcepto(x) === claveConcepto(concepto)) ? ' checked' : ''}>
+        <span>${esc(concepto)}</span>
+      </label>`).join('');
+    });
+  }
+
+  function cambiarConceptoProyecto(lista, concepto, marcado) {
+    const otraLista = lista === 'valorado' ? 'noValorado' : 'valorado';
+    const clave = claveConcepto(concepto);
+    const conceptos = listaConceptos(pres[lista]).filter(x => claveConcepto(x) !== clave);
+    if (marcado) conceptos.push(concepto);
+    pres[lista] = conceptos.join('\n');
+    if (marcado) pres[otraLista] = listaConceptos(pres[otraLista]).filter(x => claveConcepto(x) !== clave).join('\n');
+  }
 
   // ------------------------------------------------------------------ modelo
   function acabadoPorDefecto(codigoFamilia) {
@@ -78,7 +120,8 @@ const App = (() => {
   function presupuestoVacio() {
     pres = {
       version: 6, numero: '', fecha: hoy(),
-      cliente: { codigo: '', nombre: '', contacto: '' }, referencia: '', descripcion: '', planos: [],
+      cliente: { codigo: '', nombre: '', contacto: '' }, referencia: '', descripcion: '',
+      valorado: '', noValorado: '', conceptosProyecto: [], planos: [],
       descuento: { activo: false, porcentaje: catActual.parametros.descuentoCarpinteroPct },
       recargoActivo: true,
       muebles: [], precios: catActual
@@ -91,6 +134,7 @@ const App = (() => {
   function prepararCargado(p) {
     p.cliente = p.cliente || { nombre: '', contacto: '' };
     p.cliente.codigo = p.cliente.codigo || '';
+    prepararListasProyecto(p);
     p.descuento = p.descuento || { activo: false, porcentaje: catActual.parametros.descuentoCarpinteroPct };
     p.precios = p.precios || catActual;
     if (p.recargoActivo === undefined) p.recargoActivo = true;
@@ -124,6 +168,7 @@ const App = (() => {
       const v = el.dataset.bind.split('.').reduce((o, k) => o?.[k], pres);
       if (el.type === 'checkbox') el.checked = !!v; else el.value = v ?? '';
     });
+    pintarListasProyecto();
     Mueble.rellenarMateriales(cat());
     pintarNombresPieza();
     pintarPlanos();
@@ -140,7 +185,10 @@ const App = (() => {
     const textoCanto = fam?.canto === 'PULIDO' ? 'Pulido' : 'Canto';
     const conAcabado = fam?.acabadoSuperficial;
     const tabs = Catalogo.tablerosDe(c, sec.familia);
-    const tabActual = tabs.some(t => t.acabado === sec.acabado && t.grosor === sec.grosor);
+    // Primero se elige el acabado (con búsqueda) y después el grueso que haya de ese acabado
+    const acabadosTab = [...new Map(tabs.map(t => [t.acabado, t])).values()];
+    const grosores = tabs.filter(t => t.acabado === sec.acabado);
+    const tabActual = grosores.some(t => t.grosor === sec.grosor);
     const acabados = conAcabado ? [SIN, ...Catalogo.acabadosDe(c, sec.familia).map(a => a.nombre)] : [];
 
     const filas = sec.piezas.map((pz, j) => `
@@ -167,9 +215,12 @@ const App = (() => {
       <div class="seccion-cabecera">
         <h3>Material ${i + 1}</h3>
         <label>Material <select data-bind="sec.familia">${c.familias.map(f => opt(f.codigo, f.nombre, f.codigo === sec.familia)).join('')}</select></label>
-        <label class="crece">Tablero <select data-bind="sec.tablero">
-          ${tabActual ? '' : opt('', `⚠ ${sec.acabado} ${sec.grosor} mm (ya no está en el catálogo)`, true)}
-          ${tabs.map(t => opt(`${t.acabado}|${t.grosor}`, Catalogo.textoTablero(t), t.acabado === sec.acabado && t.grosor === sec.grosor)).join('')}
+        <label class="crece">Acabado tablero <input type="text" data-bind="sec.acabado" value="${esc(sec.acabado)}"
+          list="acabados-${m}-${i}" placeholder="Escribe para buscar…" autocomplete="off" title="Escribe parte del nombre o del código y elige de la lista"></label>
+        <datalist id="acabados-${m}-${i}">${acabadosTab.map(t => `<option value="${esc(t.acabado)}">${esc(t.codigo)}</option>`).join('')}</datalist>
+        <label>Grueso <select data-bind="sec.grosor">
+          ${tabActual ? '' : opt('', `⚠ ${sec.grosor} mm (ya no está en el catálogo)`, true)}
+          ${grosores.map(t => opt(t.grosor, Catalogo.textoGrosor(t), t.grosor === sec.grosor)).join('')}
         </select></label>
         <label>Medida tablero <select data-bind="sec.medida">${c.medidas.map(x => opt(x, x.replace('x', ' × ') + ' cm', x === sec.medida)).join('')}</select></label>
         <label>Coste tablero <select data-bind="sec.modo">
@@ -462,10 +513,18 @@ const App = (() => {
     }
     else if (b.startsWith('pz.')) pz[b.slice(3)] = v;
     else if (b === 'sec.familia') { cambiarFamilia(sec, v); estructura = true; }
-    else if (b === 'sec.tablero') {
+    else if (b === 'sec.acabado') {
+      // Solo vale un acabado del catálogo; se mantiene el grueso si existe en el nuevo acabado
+      const tabs = Catalogo.tablerosDe(cat(), sec.familia)
+        .filter(t => Catalogo.normalizar(t.acabado) === Catalogo.normalizar(v));
+      if (!tabs.length) return;
+      const t = tabs.find(t => t.grosor === sec.grosor) || tabs[0];
+      Object.assign(sec, { acabado: t.acabado, grosor: t.grosor });
+      estructura = true;
+    }
+    else if (b === 'sec.grosor') {
       if (!v) return;
-      const [acabado, grosor] = v.split('|');
-      Object.assign(sec, { acabado, grosor: Number(grosor) });
+      sec.grosor = Number(v);
       estructura = true;
     }
     else if (b.startsWith('sec.')) sec[b.slice(4)] = v;
@@ -599,6 +658,20 @@ const App = (() => {
       marcarCambios(); repintar();
     },
     'adjuntar-plano'() { $('#archivo-plano').click(); },
+    'anadir-concepto-proyecto'(el) {
+      const lista = el.dataset.lista;
+      if (lista !== 'valorado' && lista !== 'noValorado') return;
+      const input = el.closest('.anadir-concepto').querySelector('input');
+      const concepto = input.value.trim();
+      if (!concepto) return;
+      if (![...CONCEPTOS_PROYECTO, ...pres.conceptosProyecto].some(x => claveConcepto(x) === claveConcepto(concepto))) {
+        pres.conceptosProyecto.push(concepto);
+      }
+      cambiarConceptoProyecto(lista, concepto, true);
+      input.value = '';
+      marcarCambios();
+      pintarListasProyecto();
+    },
     async 'ver-plano'(el) {
       const pl = pres.planos[indice(el, 'pl')];
       const f = await archivoPlano(pl);
@@ -902,6 +975,9 @@ const App = (() => {
     Object.assign(pres.cliente, r.cliente);
     if (r.referencia) pres.referencia = r.referencia;
     if (r.descripcion) pres.descripcion = r.descripcion;
+    pres.valorado = r.valorado;
+    pres.noValorado = r.noValorado;
+    prepararListasProyecto(pres);
     if (r.descuento !== null) pres.descuento.activo = r.descuento;
     pres.muebles = r.muebles.map(mu => ({
       nombre: mu.nombre,
@@ -982,11 +1058,25 @@ const App = (() => {
     });
     document.addEventListener('input', e => {
       const el = e.target;
+      if (el.dataset?.bind === 'sec.acabado') {
+        // Mientras se escribe solo se filtra la lista; se aplica al elegir de ella o al salir del campo
+        if (e.inputType && e.inputType !== 'insertReplacementText') return;
+        const { m, s } = lugar(el);
+        alCambiarCampo(el);
+        document.querySelector(`#muebles section[data-m="${m}"] .seccion[data-s="${s}"] [data-bind="sec.grosor"]`)?.focus();
+        return;
+      }
       if (!el.dataset?.bind || el.tagName === 'SELECT' || el.type === 'checkbox') return;
       alCambiarCampo(el);
     });
     document.addEventListener('change', e => {
       const el = e.target;
+      if (el.dataset?.proyectoLista) {
+        cambiarConceptoProyecto(el.dataset.proyectoLista, el.dataset.concepto, el.checked);
+        marcarCambios();
+        pintarListasProyecto();
+        return;
+      }
       if (el.dataset?.excl) {
         const [tipo, m, a, k] = el.dataset.excl.split('|');
         const mu = pres.muebles[+m];
@@ -996,11 +1086,23 @@ const App = (() => {
         marcarCambios(); recalcular();
         return;
       }
+      if (el.dataset?.bind === 'sec.acabado') {
+        // Texto escrito a mano: si no es un acabado del catálogo se vuelve al que había
+        const { sec } = lugar(el);
+        alCambiarCampo(el);
+        if (el.isConnected) el.value = sec.acabado;
+        return;
+      }
       if (el.dataset?.bind && (el.tagName === 'SELECT' || el.type === 'checkbox')) alCambiarCampo(el);
     });
     // Intro en la tabla de piezas: baja a la fila siguiente o crea una nueva
     document.addEventListener('keydown', e => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); guardar(); return; }
+      if (e.key === 'Enter' && e.target.matches('[data-proyecto-nuevo]')) {
+        e.preventDefault();
+        e.target.closest('.anadir-concepto').querySelector('[data-accion="anadir-concepto-proyecto"]').click();
+        return;
+      }
       if (e.key !== 'Enter' || e.target.tagName !== 'INPUT') return;
       const tr = e.target.closest('#muebles tr[data-p]');
       if (!tr) return;
