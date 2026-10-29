@@ -90,9 +90,13 @@ const Almacen = (() => {
   }
 
   // Nombre de carpeta o archivo sin acentos ni símbolos, para evitar problemas con el NAS
+  // Windows y el navegador no aceptan nombres que empiecen o acaben en punto o espacio
+  // (ej: «Fusteria S.L.») ni nombres reservados (CON, NUL, COM1…)
   function limpiarNombre(texto) {
-    return String(texto || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
-      .replace(/[^\w .,&()'-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60);
+    const t = String(texto || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/[^\w .,&()'-]/g, '').replace(/\s+/g, ' ').slice(0, 60)
+      .replace(/^[\s.]+|[\s.]+$/g, '');
+    return /^(con|prn|aux|nul|com\d|lpt\d)$/i.test(t) ? t + '_' : t;
   }
 
   async function carpetaPresupuestos(crear) {
