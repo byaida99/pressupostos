@@ -135,10 +135,10 @@ const Imprimir = (() => {
         <section class="cli-condiciones">
           <h3>Condiciones de aceptación</h3>
           <div class="cli-paso"><span class="cli-paso-n">1</span>
-            <div><strong>Inicio del proyecto · ${pctIni} %</strong><br>Para empezar el trabajo se abona el ${pctIni} % del total:
+            <div><strong>Inicio del proyecto · ${pctIni} %</strong><br>Para empezar el trabajo se abona el ${pctIni} % del total, IVA incluido:
               <span class="cli-resalte">${euros(pagoIni)}</span></div></div>
           <div class="cli-paso"><span class="cli-paso-n">2</span>
-            <div><strong>Entrega · ${pctFin} %</strong><br>El ${pctFin} % restante, <strong>${euros(pagoFin)}</strong>, se liquida a la entrega del material.</div></div>
+            <div><strong>Entrega · ${pctFin} %</strong><br>El ${pctFin} % restante, <strong>${euros(pagoFin)}</strong> IVA incluido, se liquida a la entrega del material.</div></div>
           ${p.iban ? `<div class="cli-iban"><span>Número de cuenta para el ingreso</span><code>${esc(p.iban)}</code></div>` : ''}
         </section>
         <section class="cli-totales">
@@ -157,6 +157,34 @@ const Imprimir = (() => {
 
   const cliente = (pres, res, cat) => imprimir(htmlCliente(pres, res, cat), nombreArchivo(pres));
 
+  // Trozos de texto de la página con su posición en px desde la esquina del contenedor,
+  // uno por línea visual. Sirven para poner el texto invisible encima de la imagen del PDF.
+  function textosConPosicion(cont) {
+    const caja = cont.getBoundingClientRect();
+    const rango = document.createRange();
+    const trozos = [];
+    const recorrido = document.createTreeWalker(cont, NodeFilter.SHOW_TEXT);
+    for (let nodo; (nodo = recorrido.nextNode());) {
+      const mayusculas = getComputedStyle(nodo.parentElement).textTransform === 'uppercase';
+      const palabras = /\S+/g;
+      let actual = null, m;
+      while ((m = palabras.exec(nodo.textContent))) {
+        rango.setStart(nodo, m.index);
+        rango.setEnd(nodo, m.index + m[0].length);
+        const r = rango.getBoundingClientRect();
+        if (!r.width) continue;
+        const palabra = mayusculas ? m[0].toUpperCase() : m[0];
+        if (actual && Math.abs(r.top - actual.top) < 2) { actual.texto += ' ' + palabra; actual.right = r.right; }
+        else {
+          if (actual) trozos.push(actual);
+          actual = { texto: palabra, left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+        }
+      }
+      if (actual) trozos.push(actual);
+    }
+    return trozos.map(t => ({ texto: t.texto, x: t.left - caja.left, y: t.top - caja.top, w: t.right - t.left, h: t.bottom - t.top }));
+  }
+
   // PDF del cliente como archivo: la página se dibuja con html2canvas y se pasa a A4 con jsPDF,
   // cortando las páginas entre filas.
   async function pdfCliente(pres, res, cat) {
@@ -172,7 +200,9 @@ const Imprimir = (() => {
       const arriba = cont.getBoundingClientRect().top;
       const cortes = [...cont.querySelectorAll('.cli > *, .cli-tabla thead, .cli-tabla tbody tr')]
         .map(el => el.getBoundingClientRect().bottom - arriba).sort((a, b) => a - b);
+      const textos = textosConPosicion(cont);
       const lienzo = await html2canvas(cont, { scale: ESCALA, backgroundColor: '#ffffff', logging: false });
+      const mmPx = ANCHO_MM / ANCHO_PX;
       const altoPagina = ALTO_MM * ANCHO_PX / ANCHO_MM;
       const total = lienzo.height / ESCALA;
       const doc = new jspdf.jsPDF({ unit: 'mm', format: 'a4' });
@@ -189,6 +219,13 @@ const Imprimir = (() => {
         trozo.getContext('2d').drawImage(lienzo, 0, -Math.floor(inicio * ESCALA));
         if (pagina) doc.addPage();
         doc.addImage(trozo.toDataURL('image/jpeg', 0.92), 'JPEG', MARGEN, MARGEN, ANCHO_MM, (fin - inicio) * ANCHO_MM / ANCHO_PX);
+        // Texto invisible encima de la imagen, para poder seleccionarlo, copiarlo y buscarlo
+        textos.filter(t => t.y + t.h / 2 >= inicio && t.y + t.h / 2 < fin).forEach(t => {
+          doc.setFontSize(Math.max(1, t.h * mmPx * 0.8 / 0.3528));
+          const natural = doc.getTextWidth(t.texto);
+          doc.text(t.texto, MARGEN + t.x * mmPx, MARGEN + (t.y - inicio + t.h * 0.78) * mmPx,
+            { renderingMode: 'invisible', horizontalScale: natural ? t.w * mmPx / natural : 1 });
+        });
         inicio = fin;
       }
       return doc.output('blob');
