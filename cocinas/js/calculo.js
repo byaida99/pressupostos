@@ -97,6 +97,9 @@ const Calculo = (() => {
     };
   }
 
+  // Cajones de una línea: los que se le han puesto en la lista o, si no, los del módulo en el catálogo
+  const cajonesLinea = (linea, def) => Array.isArray(linea.cajones) ? linea.cajones : def.cajones;
+
   // Detalle de una línea de módulo. Devuelve los importes sin recargo y el precio por unidad con recargo.
   function modulo(linea, pres, cat) {
     const P = cat.parametros;
@@ -106,7 +109,7 @@ const Calculo = (() => {
     const W = Catalogo.numero(linea.ancho), H = Catalogo.numero(linea.alto), D = Catalogo.numero(linea.fondo);
     const ac = acabadoLinea(linea, pres, cat);
     const precioAc = precioDe(ac.fila, tar);
-    const mod = { ...def, cajones: def.cajones.map(c => Catalogo.cajon(cat, c)).filter(Boolean) };
+    const mod = { ...def, cajones: cajonesLinea(linea, def).map(c => Catalogo.cajon(cat, c)).filter(Boolean) };
 
     const c = casco(P, cat, tar, mod, W, H, D, precioAc);
     const puertas = puertasDe(mod, W, H);
@@ -196,5 +199,5 @@ const Calculo = (() => {
     ['herrajes', 'Herrajes y guías'], ['montaje', 'Montaje'], ['extra', 'Extra']
   ];
 
-  return { presupuesto, linea, puertasDe, altosCajon, CONCEPTOS };
+  return { presupuesto, linea, puertasDe, altosCajon, cajonesLinea, CONCEPTOS };
 })();

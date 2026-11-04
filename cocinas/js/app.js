@@ -57,7 +57,7 @@ const App = (() => {
     return {
       id: nuevoId(), clase: 'modulo', codigo: def.codigo,
       ancho: def.anchos[0], alto: def.altos[0], fondo: def.fondo, estantes: def.estantes,
-      cantidad: 1, acabado: null, nota: ''
+      cajones: [...def.cajones], cantidad: 1, acabado: null, nota: ''
     };
   }
 
@@ -132,6 +132,18 @@ const App = (() => {
       c.acabados.map(a => `<option value="${esc(a.acabado + '|' + a.tipo)}" ${actual === a.acabado + '|' + a.tipo ? 'selected' : ''}>${esc(a.acabado)} ${esc(a.tipo)}</option>`).join('');
   }
 
+  // Cajones de un módulo bajo o columna: cada uno se quita con ✕ y se añaden desde el desplegable.
+  // Las puertas ocupan el alto que dejan libre los cajones.
+  function htmlCajones(l, i, def) {
+    if (!def || def.tipo === 'Alto' || def.carcasa === 'ninguna') return '';
+    const c = cat();
+    const lista = Calculo.cajonesLinea(l, def);
+    return `<div class="cajones-linea">
+      ${lista.map((k, j) => `<button type="button" class="chip" data-accion="quitar-cajon" data-l="${i}" data-j="${j}" title="Quitar este cajón">${esc(Catalogo.cajon(c, k)?.nombre || k)} ✕</button>`).join('')}
+      <select data-l="${i}" data-campo="anadir-cajon" title="Añadir un cajón"><option value="">＋ Cajón…</option>
+        ${c.cajones.map(cj => `<option value="${esc(cj.codigo)}">${esc(cj.nombre)} (frente ${cj.altoFrente} mm)</option>`).join('')}</select></div>`;
+  }
+
   function htmlLinea(l, i) {
     const c = cat();
     const n = pres.lineas.length;
@@ -166,7 +178,7 @@ const App = (() => {
     return `<tr data-fila="${i}">
       <td class="celda-dibujo" data-dibujo="${i}"></td>
       <td class="celda-modulo"><select data-l="${i}" data-campo="codigo">${(def ? hermanos : [{ codigo: l.codigo, nombre: l.codigo + ' (no está en el catálogo)' }]).map(m => `<option value="${esc(m.codigo)}" ${m.codigo === l.codigo ? 'selected' : ''}>${esc(m.nombre)}</option>`).join('')}</select>
-        <div class="composicion" data-composicion="${i}"></div>${nota}<div class="error-linea" data-error="${i}"></div></td>
+        <div class="composicion" data-composicion="${i}"></div>${htmlCajones(l, i, def)}${nota}<div class="error-linea" data-error="${i}"></div></td>
       <td class="medida">${num('ancho', l.ancho, `min="1" step="1" list="anchos-${esc(l.codigo)}"`)}</td>
       <td class="medida">${num('alto', l.alto, `min="1" step="1" list="altos-${esc(l.codigo)}"`)}</td>
       <td class="medida">${def?.carcasa === 'ninguna' ? '<div class="nada">—</div>' : num('fondo', l.fondo, 'min="1" step="1"')}</td>
@@ -219,7 +231,7 @@ const App = (() => {
       if (l.clase !== 'modulo') return;
       const def = Catalogo.modulo(c, l.codigo);
       if (def) {
-        fila.querySelector(`[data-dibujo="${i}"]`).innerHTML = Dibujo.svg(conCajones(def), Catalogo.numero(l.ancho), Catalogo.numero(l.alto), Math.round(Catalogo.numero(l.estantes)), 46);
+        fila.querySelector(`[data-dibujo="${i}"]`).innerHTML = Dibujo.svg(conCajones({ ...def, cajones: Calculo.cajonesLinea(l, def) }), Catalogo.numero(l.ancho), Catalogo.numero(l.alto), Math.round(Catalogo.numero(l.estantes)), 46);
         fila.querySelector(`[data-composicion="${i}"]`).textContent = Imprimir.composicion(r);
       }
       const det = $(`#lineas tr[data-detalle="${i}"] td`);
@@ -303,6 +315,12 @@ const App = (() => {
         l.acabado = el.value ? { acabado, tipo, color: '' } : null;
         marcarCambios(); pintarLineas(); return recalcular();
       }
+      if (campo === 'anadir-cajon') {
+        if (!final || !el.value) return;
+        const def = Catalogo.modulo(cat(), l.codigo);
+        l.cajones = [...Calculo.cajonesLinea(l, def), el.value];
+        marcarCambios(); pintarLineas(); return recalcular();
+      }
       if (campo === 'codigo') {
         if (!final) return;
         const nuevo = l.clase === 'pieza' ? lineaPieza(Catalogo.pieza(cat(), el.value)) : lineaModulo(Catalogo.modulo(cat(), el.value));
@@ -361,6 +379,11 @@ const App = (() => {
       case 'copiar-linea':
         pres.lineas.splice(i + 1, 0, { ...JSON.parse(JSON.stringify(pres.lineas[i])), id: nuevoId() });
         marcarCambios(); pintarLineas(); return recalcular();
+      case 'quitar-cajon': {
+        const l = pres.lineas[i];
+        l.cajones = Calculo.cajonesLinea(l, Catalogo.modulo(cat(), l.codigo)).filter((_, j) => j !== +el.dataset.j);
+        marcarCambios(); pintarLineas(); return recalcular();
+      }
       case 'borrar-linea':
         pres.lineas.splice(i, 1);
         marcarCambios(); pintarLineas(); return recalcular();

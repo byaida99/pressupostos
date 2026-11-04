@@ -73,3 +73,7 @@
 
 /* PDF cliente: filas de grupo */
 .cli-tabla tr.cli-grupo td { background: none; color: var(--naranja-osc); font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; padding: 12px 10px 4px; border-bottom: 2px solid var(--naranja); }
+.cajones-linea { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-top: 4px; }
+.cajones-linea .chip { padding: 1px 8px; font-size: 11.5px; border-radius: 12px; background: var(--naranja-suave); border-color: #ffd2b3; color: var(--naranja-osc); }
+.cajones-linea .chip:hover { border-color: var(--rojo); color: var(--rojo); }
+.cajones-linea select { font-size: 12px; padding: 2px 4px; width: auto; max-width: 130px; }
