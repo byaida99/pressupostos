@@ -95,6 +95,9 @@ const Imprimir = (() => {
     }
 
     const pagoIni = res.pagoInicial, pagoFin = res.totalConIva - res.pagoInicial;
+    // Misma referencia que en la app de muebles: códigocliente_Referencia
+    const codigoCliente = String(pres.cliente.codigo || '').trim() || '1000';
+    const referenciaIngreso = [codigoCliente, String(pres.referencia || '').trim()].filter(Boolean).join('_');
     const pctIni = dec(res.pagoInicialPct, 0), pctFin = dec(100 - res.pagoInicialPct, 0);
     const ac = pres.acabado;
 
@@ -139,7 +142,10 @@ const Imprimir = (() => {
               <span class="cli-resalte">${euros(pagoIni)}</span></div></div>
           <div class="cli-paso"><span class="cli-paso-n">2</span>
             <div><strong>Entrega · ${pctFin} %</strong><br>El ${pctFin} % restante, <strong>${euros(pagoFin)}</strong> IVA incluido, se liquida a la entrega del material.</div></div>
-          ${p.iban ? `<div class="cli-iban"><span>Número de cuenta para el ingreso</span><code>${esc(p.iban)}</code></div>` : ''}
+          <div class="cli-ingreso">
+            ${p.iban ? `<div class="cli-iban"><span>Número de cuenta para el ingreso</span><code>${esc(p.iban)}</code></div>` : ''}
+            <div class="cli-iban"><span>Referencia para el ingreso</span><code>${esc(referenciaIngreso)}</code></div>
+          </div>
         </section>
         <section class="cli-totales">
           <div class="cli-linea"><span>Base imponible</span><span>${euros(res.total)}</span></div>
