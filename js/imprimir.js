@@ -333,11 +333,11 @@ const Imprimir = (() => {
         const r = rm.secciones[i];
         const fam = Catalogo.familia(cat, sec.familia);
         const tab = Catalogo.tablero(cat, sec.familia, sec.acabado, sec.grosor);
-        const conCanto = fam?.canto === 'CANTO' || fam?.canto === 'PULIDO', conAcabado = fam?.acabadoSuperficial;
+        const conCanto = ['CANTO', 'PULIDO', 'CANTEADO'].includes(fam?.canto), conAcabado = fam?.acabadoSuperficial;
         html += `<h3>${i + 1}. ${esc(fam?.nombre || sec.familia)} – ${esc(tab ? Catalogo.textoTablero(tab) : `${sec.acabado} ${sec.grosor} mm`)}</h3>
           <p class="pdf-meta">Tablero ${esc(sec.medida.replace('x', ' × '))} cm · ${sec.modo === 'M2_MERMA' ? 'm² de pieza + merma' : 'tableros enteros'}</p>
           <table class="pdf-tabla compacta"><thead><tr><th>Pieza</th><th class="num">Largo</th><th class="num">Ancho</th><th class="num">Cant.</th>
-            ${conCanto ? `<th>${fam.canto === 'PULIDO' ? 'Pulido' : 'Cantos'}</th>` : ''}${conAcabado ? '<th>Acabado</th>' : ''}<th class="num">m²</th><th class="num">€</th></tr></thead><tbody>
+            ${conCanto ? `<th>${{ PULIDO: 'Pulido', CANTEADO: 'Canteado' }[fam.canto] || 'Cantos'}</th>` : ''}${conAcabado ? '<th>Acabado</th>' : ''}<th class="num">m²</th><th class="num">€</th></tr></thead><tbody>
           ${sec.piezas.map((pz, j) => {
             const rp = r.piezas[j];
             if (!rp.m2) return '';

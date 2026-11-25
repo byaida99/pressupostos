@@ -46,8 +46,9 @@ const Calculo = (() => {
     const m2Tablero = (anchoCm * altoCm) / 10000 || 0;
     // Canto: se cobra el material y el canteado de los lados marcados.
     // Pulido (MDF): los lados marcados se pulen; se cobra igual que el canteado, sin material.
+    // Canteado (Sin material): se cobra solo el canteado de los lados marcados.
     const llevaCanto = fam.canto === 'CANTO';
-    const marcaLados = llevaCanto || fam.canto === 'PULIDO';
+    const marcaLados = llevaCanto || fam.canto === 'PULIDO' || fam.canto === 'CANTEADO';
     const precioCanto = llevaCanto
       ? (tab.grosor >= p.cantoGruesoDesdeMm ? tab.cantoGrueso : tab.cantoFino)
       : 0;

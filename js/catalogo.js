@@ -87,7 +87,7 @@ const Catalogo = (() => {
       return {
         codigo: String(col(f, 'codigo')).trim(),
         nombre: String(col(f, 'nombre')).trim(),
-        canto: canto.startsWith('pul') ? 'PULIDO' : canto.startsWith('cant') ? 'CANTO' : 'NO',
+        canto: canto.startsWith('pul') ? 'PULIDO' : canto.startsWith('cantead') ? 'CANTEADO' : canto.startsWith('cant') ? 'CANTO' : 'NO',
         acabadoSuperficial: siNo(col(f, 'acabado')),
         medida: String(col(f, 'medida')).trim(),
         lijadoM2: numero(col(f, 'lijado'))

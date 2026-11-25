@@ -181,8 +181,8 @@ const App = (() => {
     const c = cat();
     const fam = Catalogo.familia(c, sec.familia);
     // En los materiales pulidos (MDF) los lados marcados son los que se pulen
-    const conCanto = fam?.canto === 'CANTO' || fam?.canto === 'PULIDO';
-    const textoCanto = fam?.canto === 'PULIDO' ? 'Pulido' : 'Canto';
+    const conCanto = ['CANTO', 'PULIDO', 'CANTEADO'].includes(fam?.canto);
+    const textoCanto = fam?.canto === 'PULIDO' ? 'Pulido' : fam?.canto === 'CANTEADO' ? 'Canteado' : 'Canto';
     const conAcabado = fam?.acabadoSuperficial;
     const tabs = Catalogo.tablerosDe(c, sec.familia);
     // Primero se elige el acabado (con búsqueda) y después el grueso que haya de ese acabado
@@ -235,7 +235,7 @@ const App = (() => {
       <table class="tabla tabla-piezas">
         <thead><tr>
           <th>Pieza</th><th class="num">Largo</th><th class="num">Ancho</th><th class="num">Cant.</th>
-          ${conCanto ? `<th>${textoCanto === 'Pulido' ? 'Pulido' : 'Cantos'}</th>` : ''}${conAcabado ? '<th>Acabado</th>' : ''}
+          ${conCanto ? `<th>${textoCanto === 'Canto' ? 'Cantos' : textoCanto}</th>` : ''}${conAcabado ? '<th>Acabado</th>' : ''}
           <th class="num">m²</th><th class="num precio">€</th><th></th>
         </tr></thead>
         <tbody>${filas}</tbody>
