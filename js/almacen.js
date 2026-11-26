@@ -25,6 +25,7 @@ const Almacen = (() => {
       const peticion = indexedDB.open('app-presupuestos', 1);
       peticion.onupgradeneeded = () => peticion.result.createObjectStore('ajustes');
       peticion.onerror = () => rechazar(peticion.error);
+      peticion.onblocked = () => rechazar(new Error('La memoria del navegador está bloqueada por otra ventana de la app'));
       peticion.onsuccess = () => {
         const tx = peticion.result.transaction('ajustes', modo);
         const r = accion(tx.objectStore('ajustes'));

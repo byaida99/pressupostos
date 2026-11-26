@@ -1231,13 +1231,30 @@ const App = (() => {
   window.addEventListener('unhandledrejection', e => mostrarError(e.reason));
   window.addEventListener('error', e => mostrarError(e.error || e.message));
 
+  // Si la carpeta guardada ya no existe o el NAS no responde, el navegador puede quedarse
+  // esperando sin dar error: pasado un tiempo se deja reintentar o elegir otra carpeta
+  const conTiempo = (promesa, ms) => Promise.race([promesa,
+    new Promise((ok, mal) => setTimeout(() => mal(Object.assign(new Error('sin respuesta'), { name: 'SinRespuesta' })), ms))]);
+
+  function carpetaSinRespuesta() {
+    const nombre = Almacen.nombreCarpeta();
+    pantallaInicio(`La carpeta${nombre ? ` <strong>${esc(nombre)}</strong>` : ''} no responde. ` +
+      '¿Está conectado el NAS? ¿Se ha movido o renombrado la carpeta?', [
+      ['Reintentar', async () => location.reload(), true],
+      ['Elegir carpeta', async () => { await Almacen.elegirCarpeta(); await conCarpeta(); }]
+    ]);
+  }
+
   async function iniciar() {
     conectarEventos();
     Mueble.iniciar(() => cat(), anadirPiezasMueble);
-    const estado = await Almacen.recuperarCarpeta();
+    let estado;
+    try { estado = await conTiempo(Almacen.recuperarCarpeta(), 8000); }
+    catch (e) { return carpetaSinRespuesta(); }
     if (estado === 'no-soportado') return sinCarpeta();
     if (estado === 'ok') {
-      try { return await conCarpeta(); } catch (e) { /* se pide de nuevo abajo */ }
+      try { return await conTiempo(conCarpeta(), 30000); }
+      catch (e) { if (e.name === 'SinRespuesta') return carpetaSinRespuesta(); /* si no, se pide de nuevo abajo */ }
     }
     if (estado === 'pedir-permiso') {
       return pantallaInicio(`Pulsa para conectar con la carpeta <strong>${esc(Almacen.nombreCarpeta())}</strong>.`, [
